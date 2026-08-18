@@ -1,0 +1,45 @@
+{
+  "enabled_analyzers": [
+    "Completeness",
+    "Validity",
+    "Consistency",
+    "Uniqueness",
+    "Timeliness"
+  ],
+  "required_fields": [
+    "employee_id",
+    "email",
+    "department",
+    "salary",
+    "joining_date"
+  ],
+  "email_regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+  "phone_regex": "^\\+?1?\\d{9,15}$",
+  "salary_min": 0,
+  "timeliness_days": 365,
+  "country_currency_map": {
+    "India": "INR",
+    "USA": "USD",
+    "United States": "USD",
+    "Germany": "EUR",
+    "UK": "GBP",
+    "United Kingdom": "GBP",
+    "Canada": "CAD",
+    "Australia": "AUD"
+  },
+  "quality_weights": {
+    "completeness": 0.30,
+    "validity": 0.25,
+    "consistency": 0.20,
+    "uniqueness": 0.15,
+    "timeliness": 0.10
+  },
+  "grade_boundaries": {
+    "A+": [95.0, 100.0],
+    "A": [90.0, 94.99],
+    "B": [80.0, 89.99],
+    "C": [70.0, 79.99],
+    "D": [60.0, 69.99],
+    "F": [0.0, 59.99]
+  }
+}

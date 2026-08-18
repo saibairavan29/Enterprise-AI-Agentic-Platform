@@ -1,0 +1,373 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+/* Custom resets for White + Green theme */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #e9ecef;
+  
+  --text-primary: #212529;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  
+  --accent-primary: #198754; /* Professional Green */
+  --accent-secondary: #146c43; /* Dark Green */
+  --accent-light: #eaf6ef; /* Light Green */
+  --accent-very-light: #f3faf6; /* Very Light Green */
+  
+  --glass-bg: #ffffff;
+  --glass-border: #dee2e6;
+  --glass-shadow: rgba(0, 0, 0, 0.05);
+  
+  --transition-smooth: all 0.2s ease-in-out;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Force body and backgrounds to be white/light */
+body {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+}
+
+.container-fluid {
+  background-color: #ffffff !important;
+}
+
+/* Navbar */
+nav.navbar {
+  background-color: #ffffff !important;
+  border-bottom: 2px solid #e9ecef !important;
+}
+
+nav.navbar .navbar-brand {
+  color: #198754 !important;
+  font-weight: 700;
+}
+
+/* Panel and Card classes */
+.glass-panel {
+  background-color: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05) !important;
+  color: #212529 !important;
+}
+
+.glass-card {
+  background-color: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
+  color: #212529 !important;
+}
+
+.glass-card:hover {
+  border-color: #198754 !important;
+  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.1) !important;
+  background-color: #f3faf6 !important;
+}
+
+/* Selected or active card */
+.glass-card.border-indigo-glowing, .glass-panel.border-indigo-glowing {
+  border-color: #198754 !important;
+}
+
+/* Buttons style */
+.btn-premium-primary, .btn-primary {
+  background-color: #198754 !important;
+  color: #ffffff !important;
+  border: 1px solid #198754 !important;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-premium-primary:hover, .btn-primary:hover {
+  background-color: #146c43 !important;
+  border-color: #146c43 !important;
+}
+
+.btn-premium-primary:disabled, .btn-primary:disabled {
+  background-color: #dee2e6 !important;
+  border-color: #ced4da !important;
+  color: #6c757d !important;
+}
+
+.btn-premium-secondary, .btn-secondary, .btn-outline-secondary {
+  background-color: #ffffff !important;
+  color: #198754 !important;
+  border: 1px solid #198754 !important;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-premium-secondary:hover, .btn-secondary:hover, .btn-outline-secondary:hover {
+  background-color: #f3faf6 !important;
+  color: #146c43 !important;
+  border-color: #146c43 !important;
+}
+
+.btn-outline-danger {
+  border-color: #dc3545 !important;
+  color: #dc3545 !important;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545 !important;
+  color: #ffffff !important;
+}
+
+.btn-outline-info {
+  border-color: #198754 !important;
+  color: #198754 !important;
+}
+
+.btn-outline-info:hover {
+  background-color: #198754 !important;
+  color: #ffffff !important;
+}
+
+.btn-outline-success {
+  border-color: #198754 !important;
+  color: #198754 !important;
+}
+
+.btn-outline-success:hover {
+  background-color: #198754 !important;
+  color: #ffffff !important;
+}
+
+.btn-outline-warning {
+  border-color: #ffc107 !important;
+  color: #ffc107 !important;
+}
+
+.btn-outline-warning:hover {
+  background-color: #ffc107 !important;
+  color: #212529 !important;
+}
+
+/* Force dark text and clean background for all input boxes */
+.form-control, .form-select, textarea {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+  border: 1px solid #ced4da !important;
+}
+
+.form-control::placeholder {
+  color: #6c757d !important;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #198754 !important;
+  box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.25) !important;
+}
+
+/* Override .bg-dark used on elements */
+.bg-dark {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
+}
+
+/* Override opacity container backgrounds */
+.bg-opacity-25 {
+  background-color: #f8f9fa !important;
+}
+
+.bg-opacity-50 {
+  background-color: #e9ecef !important;
+}
+
+.bg-opacity-70 {
+  background-color: #e9ecef !important;
+}
+
+/* Text overrides */
+.text-white, .text-light {
+  color: #212529 !important;
+}
+
+.text-secondary {
+  color: #495057 !important;
+}
+
+.text-muted {
+  color: #6c757d !important;
+}
+
+.text-cyan, .text-info {
+  color: #198754 !important;
+}
+
+.text-warning {
+  color: #ffc107 !important;
+}
+
+.text-success {
+  color: #198754 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+/* Headers style */
+h1, h2, h3, h4, h5, h6 {
+  color: #212529 !important;
+}
+
+.text-gradient, .text-gradient-glowing {
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+  color: #198754 !important;
+}
+
+/* Badges */
+.badge {
+  font-weight: 600 !important;
+}
+
+.badge.bg-success {
+  background-color: #eaf6ef !important;
+  color: #198754 !important;
+  border: 1px solid #198754;
+}
+
+.badge.bg-secondary {
+  background-color: #e9ecef !important;
+  color: #495057 !important;
+  border: 1px solid #ced4da;
+}
+
+.badge.bg-cyan, .badge.bg-info {
+  background-color: #eaf6ef !important;
+  color: #198754 !important;
+  border: 1px solid #198754;
+}
+
+.badge.bg-warning {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+  border: 1px solid #ffeeba;
+}
+
+.badge.bg-danger {
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+  border: 1px solid #f5c6cb;
+}
+
+/* Tables */
+.table-dark, .table {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+  border: 1px solid #dee2e6 !important;
+}
+
+.table th {
+  background-color: #eaf6ef !important;
+  color: #1f2937 !important;
+  border-bottom: 2px solid #198754 !important;
+  font-weight: 600 !important;
+}
+
+.table td {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+  border-bottom: 1px solid #dee2e6 !important;
+}
+
+.table-hover tbody tr:hover td {
+  background-color: #f3faf6 !important;
+}
+
+/* Table overrides for specific dark table classes */
+.table.table-dark {
+  background-color: #ffffff !important;
+}
+
+.table.table-dark th {
+  background-color: #eaf6ef !important;
+  color: #1f2937 !important;
+  border-bottom: 2px solid #198754 !important;
+}
+
+.table.table-dark td {
+  background-color: #ffffff !important;
+  color: #212529 !important;
+}
+
+/* Nav tabs */
+.nav-tabs {
+  border-bottom: 2px solid #dee2e6 !important;
+}
+
+.nav-tabs .nav-link {
+  color: #495057 !important;
+  font-weight: 500 !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+}
+
+.nav-tabs .nav-link.active {
+  color: #198754 !important;
+  border-bottom: 2px solid #198754 !important;
+  font-weight: 700 !important;
+  background-color: transparent !important;
+}
+
+/* Code views and pre blocks */
+pre, code {
+  background-color: #f8f9fa !important;
+  color: #212529 !important;
+  border: 1px solid #dee2e6 !important;
+}
+
+/* Progress bars */
+.progress {
+  background-color: #e9ecef !important;
+}
+
+.progress-bar.bg-success {
+  background-color: #198754 !important;
+}
+
+.progress-bar.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+/* Alert panels */
+.alert-danger {
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+  border: 1px solid #f5c6cb !important;
+}
+
+.alert-success {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.alert-warning {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+  border: 1px solid #ffeeba !important;
+}
+
+/* Accordion */
+.accordion-item {
+  background-color: #ffffff !important;
+  border-color: #dee2e6 !important;
+}
+
+.accordion-button {
+  background-color: #f8f9fa !important;
+  color: #198754 !important;
+}
+
+.accordion-button:not(.collapsed) {
+  background-color: #eaf6ef !important;
+  color: #146c43 !important;
+}
+
+/* Ingestion status specific overrides */
+.animate-pulse {
+  color: #198754 !important;
+}

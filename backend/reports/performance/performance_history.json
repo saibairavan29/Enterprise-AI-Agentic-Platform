@@ -1,0 +1,15 @@
+[
+    {
+        "timestamp": "2026-08-18T11:39:14.891278Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 9.977703094482422,
+            "prediction_time_ms": 0.5877017974853516,
+            "explanation_time_ms": 4.39000129699707
+        }
+    }
+]

@@ -1,0 +1,7 @@
+Employee ID,Employee Name,Department,Email,Phone,Salary,Joining Date,Manager,Project,Status
+EMP001,John Smith,Finance,john.smith@enterprise.com,+1-555-010-0001,65000,2025-06-15,Manager 1,Project A,Active
+EMP002,Alice Johnson,R&D,alice.johnson@enterprise.com,+1-555-010-0002,75000,2025-06-15,Manager 1,Project A,Active
+EMP003,Jane Smith,Marketing,jane.smith@enterprise.com,+1-555-010-0003,72000,2025-06-15,Manager 1,Project A,Active
+EMP004,Bob Wilson,Sales,bob.wilson@enterprise.com,+1-555-010-0004,68000,2020-01-15,Manager 2,Project B,Active
+EMP005,Frank Martinez,Engineering,frank.martinez@enterprise.com,+1-555-010-0005,110000,2022-03-10,Manager 3,Project C,Active
+EMP006,Policy Statement,Operations,policy@enterprise.com,+1-555-010-0006,80000,2021-08-01,Manager 4,Policy allows employees to work remotely 5 days per week.,Active

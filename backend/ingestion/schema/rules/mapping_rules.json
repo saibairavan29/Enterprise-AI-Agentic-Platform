@@ -1,0 +1,45 @@
+{
+    "employee_id": [
+        "employee_id",
+        "employee id",
+        "emp_id",
+        "emp number",
+        "employee number",
+        "employee identifier",
+        "empid",
+        "empno"
+    ],
+    "department": [
+        "department",
+        "dept",
+        "department name",
+        "dept_name",
+        "division"
+    ],
+    "phone_number": [
+        "phone",
+        "phone number",
+        "telephone",
+        "mobile",
+        "contact number"
+    ],
+    "email": [
+        "email",
+        "email address",
+        "mail id",
+        "corporate email"
+    ],
+    "joining_date": [
+        "date of joining",
+        "joining date",
+        "join date",
+        "date joined",
+        "doj"
+    ],
+    "salary": [
+        "salary",
+        "basic salary",
+        "gross salary",
+        "monthly salary"
+    ]
+}

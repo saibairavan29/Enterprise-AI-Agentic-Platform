@@ -1,0 +1,16 @@
+{
+    "dataset_version": "v1.0.0",
+    "dataset_hash": "e8a6d7b0823662079f0f9b5bec71385753576bf5b54fddc799c4920ad4210b6c",
+    "feature_version": "1.0",
+    "model_version": "RF_v1.0.0_20260804_155206",
+    "random_seed": 42,
+    "training_configuration": {
+        "n_estimators": 5,
+        "max_depth": 20,
+        "random_state": 42,
+        "classes": [
+            "Average",
+            "Excellent"
+        ]
+    }
+}

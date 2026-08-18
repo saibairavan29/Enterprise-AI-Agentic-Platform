@@ -1,0 +1,111 @@
+Employee ID,Employee Name,Department,Email,Phone,Salary,Joining Date,Manager,Project,Status
+EMP074,Henry Miller,Engineering,henry.miller@enterprise.com,+1-555-260-1043,"$160,000",2023/01/20,Manager 5,Alpha,On Leave
+EMP084,Ryan Thomas,Engineering,ryan.thomas@enterprise.com,+1-555-330-2858,185000,27/04/2019,Manager 8,Omega,Suspended
+EMP094,Thomas Taylor,Marketing,thomas.taylor@enterprise.com,+1-555-609-3344,"$90,000","Mar 04, 2023",Manager 8,Omega,Active
+EMP041,Kate White,Legal,kate.white@enterprise.com,+1-555-779-3041,"$110,000","Sep 09, 2023",Manager 7,Zeta,Resigned
+EMP097,,Operations,,+1-555-381-1132,,2024/10/19,Manager 5,Delta,Suspended
+EMP025,Sophia Jackson,  hr  ,sophia.jackson@enterprise.com,+1-555-865-6138,45000,2018/07/25,Manager 9,Gamma,Active
+EMP044,Grace Martin,  product  ,grace.martin@enterprise.com,+1-555-912-3780,60000,"Mar 08, 2021",Manager 2,Delta,Suspended
+EMP070,Sophia Wilson,  product  ,sophia.wilson@enterprise.com,+1-555-590-8216,"$135,000",2020-01-26,Manager 5,Orion,Active
+EMP037,Henry Davis,Product,henry.davis@enterprise.com,+1-555-458-6000,90000,2020-07-02,Manager 4,Sigma,Suspended
+EMP081,Ryan Johnson,Product,ryan.johnson@enterprise.com,+1-555-190-6153,"$110,000",2021-08-17,Manager 7,Alpha,Resigned
+EMP028,Mia Jones,  finance  ,mia.jones@enterprise.com,+1-555-568-6180,"$60,000",2018/02/08,Manager 10,Beta,Active
+EMP055,Kate Davis,  product  ,kate.davis@enterprise.com,+1-555-434-6529,160000,2021/02/13,Manager 5,Beta,Resigned
+EMP063,Kate Smith,Product,kate.smith@enterprise.com,+1-555-971-6325,"$75,000",21/06/2023,Manager 6,Omega,Suspended
+EMP086,Ivy Thomas,  legal  ,ivy.thomas@enterprise.com,+1-555-906-9318,"$110,000","Jan 11, 2018",Manager 5,Orion,On Leave
+EMP089,Quinn Thompson,Legal,quinn.thompson@enterprise.com,+1-555-990-2644,"$185,000",2019/02/13,Manager 1,Gamma,Resigned
+EMP017,Mia Anderson,  product  ,mia.anderson@enterprise.com,+1-555-629-8397,60000,12/10/2020,Manager 2,Zeta,Active
+EMP052,Peter Smith,  legal  ,peter.smith@enterprise.com,+1-555-405-7389,160000,14/01/2024,Manager 8,Delta,Suspended
+EMP036,Frank Martinez,  operations  ,frank.martinez@enterprise.com,+1-555-921-5065,110000,2019-10-15,Manager 7,Alpha,Resigned
+EMP067,Jack Rodriguez,Marketing,jack.rodriguez@enterprise.com,+1-555-223-4155,"$135,000",05/05/2019,Manager 4,Delta,Resigned
+EMP033,Olivia Jackson,Operations,olivia.jackson@enterprise.com,+1-555-674-1158,60000,05/11/2018,Manager 9,Alpha,Suspended
+EMP019,Kate Williams,Marketing,kate.williams@enterprise.com,+1-555-385-8953,90000,18/01/2024,Manager 10,Orion,On Leave
+EMP099,Sophia Anderson,Sales,sophia.anderson@enterprise.com,+1-555-192-5835,"$135,000",29/08/2022,Manager 4,Gamma,Suspended
+EMP097,Jack Smith,Operations,jack.smith@enterprise.com,+1-555-381-1132,"$45,000",2024/10/19,Manager 5,Delta,Suspended
+EMP011,Henry Jones,Product,henry.jones@enterprise.com,+1-555-193-1771,60000,19/09/2019,Manager 7,Beta,Resigned
+EMP093,,  sales  ,,+1-555-350-9702,,07/05/2024,Manager 3,Gamma,Active
+EMP001,David Smith,  finance  ,david.smith@enterprise.com,+1-555-350-4657,"$75,000",2019-02-24,Manager 10,Sigma,Active
+EMP020,Peter Thomas,  marketing  ,peter.thomas@enterprise.com,+1-555-196-2588,160000,2021/12/22,Manager 7,Orion,Active
+EMP095,Olivia Wilson,Sales,olivia.wilson@enterprise.com,+1-555-175-8237,"$135,000","Aug 03, 2024",Manager 7,Omega,Resigned
+EMP021,David Johnson,  operations  ,david.johnson@enterprise.com,+1-555-845-6559,60000,15/10/2020,Manager 4,Orion,On Leave
+EMP066,Sophia Anderson,  product  ,sophia.anderson@enterprise.com,+1-555-666-9698,135000,"Oct 09, 2022",Manager 6,Orion,Suspended
+EMP022,Noah Miller,Finance,noah.miller@enterprise.com,+1-555-573-5092,60000,2022-12-21,Manager 1,Alpha,Active
+EMP076,Emma Rodriguez,Sales,emma.rodriguez@enterprise.com,+1-555-173-1977,"$75,000","Jun 13, 2021",Manager 8,Beta,Resigned
+EMP090,Emma Williams,  product  ,emma.williams@enterprise.com,+1-555-900-5342,"$135,000",2024/12/27,Manager 2,Zeta,Resigned
+EMP008,Olivia Taylor,  finance  ,olivia.taylor@enterprise.com,+1-555-755-4598,135000,18/08/2018,Manager 1,Zeta,Resigned
+EMP071,Charlie Taylor,Product,charlie.taylor@enterprise.com,+1-555-175-1878,75000,"Sep 04, 2019",Manager 2,Delta,Active
+EMP087,,Product,,+1-555-453-6446,,"Feb 09, 2023",Manager 4,Delta,Resigned
+EMP026,Quinn Williams,Sales,quinn.williams@enterprise.com,+1-555-170-2113,"$90,000",2022-07-12,Manager 10,Delta,Active
+EMP088,Henry Thomas,HR,henry.thomas@enterprise.com,+1-555-425-8749,160000,01/05/2022,Manager 8,Alpha,On Leave
+EMP023,Henry Miller,  operations  ,henry.miller@enterprise.com,+1-555-597-8886,"$90,000",2022-07-01,Manager 3,Sigma,Active
+EMP035,Henry Brown,Legal,henry.brown@enterprise.com,+1-555-898-7658,"$75,000",27/08/2020,Manager 3,Sigma,Active
+EMP043,Ryan Smith,Finance,ryan.smith@enterprise.com,+1-555-393-4443,160000,"Jul 03, 2024",Manager 8,Orion,Resigned
+EMP056,Alice Jackson,HR,alice.jackson@enterprise.com,+1-555-458-4673,"$60,000",2025-04-23,Manager 1,Delta,On Leave
+EMP062,Olivia Thomas,Finance,olivia.thomas@enterprise.com,+1-555-430-5022,60000,2021/02/16,Manager 4,Orion,Resigned
+EMP097,Jack Smith,  operations  ,jack.smith@enterprise.com,+1-555-381-1132,45000,2024/10/19,Manager 5,Delta,Suspended
+EMP046,Mia Moore,  operations  ,mia.moore@enterprise.com,+1-555-349-3417,45000,2019/03/13,Manager 4,Gamma,Resigned
+EMP083,Ryan Jones,  finance  ,ryan.jones@enterprise.com,+1-555-548-8941,"$60,000",29/04/2018,Manager 3,Omega,Active
+EMP092,David Brown,  product  ,david.brown@enterprise.com,+1-555-270-5906,"$45,000","Jul 08, 2018",Manager 1,Omega,Suspended
+EMP024,Mia Rodriguez,Product,mia.rodriguez@enterprise.com,+1-555-392-7930,185000,27/09/2019,Manager 5,Delta,Active
+EMP045,Henry Davis,  sales  ,henry.davis@enterprise.com,+1-555-125-1757,"$90,000",2023-05-01,Manager 8,Sigma,On Leave
+EMP003,Olivia Thompson,Finance,olivia.thompson@enterprise.com,+1-555-928-1106,75000,2025/10/30,Manager 6,Omega,On Leave
+EMP068,Ivy Thompson,  finance  ,ivy.thompson@enterprise.com,+1-555-202-4180,110000,"Jul 20, 2020",Manager 3,Omega,Active
+EMP058,Ivy Anderson,  sales  ,ivy.anderson@enterprise.com,+1-555-720-2876,"$75,000",2021-06-28,Manager 10,Alpha,Suspended
+EMP040,Sophia Davis,  finance  ,sophia.davis@enterprise.com,+1-555-145-8144,"$45,000",31/10/2023,Manager 6,Sigma,Active
+EMP032,Bob Williams,Operations,bob.williams@enterprise.com,+1-555-949-5533,45000,"Jan 15, 2018",Manager 3,Omega,On Leave
+EMP073,Sophia White,  hr  ,sophia.white@enterprise.com,+1-555-724-2625,"$90,000",06/01/2025,Manager 5,Beta,On Leave
+EMP007,Liam Anderson,Marketing,liam.anderson@enterprise.com,+1-555-786-5374,"$60,000",31/10/2024,Manager 9,Delta,On Leave
+EMP085,Noah Moore,Product,noah.moore@enterprise.com,+1-555-349-8483,"$75,000",21/04/2022,Manager 10,Gamma,Active
+EMP027,Thomas Williams,  operations  ,thomas.williams@enterprise.com,+1-555-773-9565,"$135,000",04/12/2020,Manager 6,Delta,Suspended
+EMP057,Alice White,Sales,alice.white@enterprise.com,+1-555-344-3068,"$185,000",2025-07-05,Manager 10,Delta,Resigned
+EMP010,Ivy Jones,Marketing,ivy.jones@enterprise.com,+1-555-862-9830,110000,2024/07/22,Manager 10,Sigma,Suspended
+EMP072,,Marketing,,+1-555-894-9561,,2023/01/20,Manager 5,Sigma,Suspended
+EMP065,Peter Moore,Product,peter.moore@enterprise.com,+1-555-911-1282,60000,20/04/2021,Manager 7,Delta,Suspended
+EMP038,Ivy Williams,  finance  ,ivy.williams@enterprise.com,+1-555-459-9346,"$160,000","Aug 15, 2025",Manager 1,Beta,Suspended
+EMP054,Mia Thompson,  hr  ,mia.thompson@enterprise.com,+1-555-185-8022,"$75,000",07/03/2023,Manager 1,Omega,Resigned
+EMP093,Liam Thomas,Sales,liam.thomas@enterprise.com,+1-555-350-9702,"$160,000",07/05/2024,Manager 3,Gamma,Active
+EMP051,,Product,,+1-555-525-2020,,2022/09/17,Manager 10,Alpha,Resigned
+EMP050,Kate Martinez,Engineering,kate.martinez@enterprise.com,+1-555-241-3471,"$90,000",18/04/2022,Manager 4,Beta,Resigned
+EMP077,Jack Taylor,  finance  ,jack.taylor@enterprise.com,+1-555-612-9847,185000,2022-11-29,Manager 10,Alpha,Resigned
+EMP029,Ryan Davis,Finance,ryan.davis@enterprise.com,+1-555-235-6718,60000,"Sep 27, 2020",Manager 5,Gamma,Resigned
+EMP031,Ivy Wilson,  marketing  ,ivy.wilson@enterprise.com,+1-555-834-6617,"$90,000","Sep 16, 2025",Manager 9,Orion,Suspended
+EMP013,David Wilson,  operations  ,david.wilson@enterprise.com,+1-555-261-8433,45000,"Feb 05, 2026",Manager 9,Gamma,Active
+EMP078,Kate White,  finance  ,kate.white@enterprise.com,+1-555-126-2496,90000,2025-07-24,Manager 5,Alpha,On Leave
+EMP064,Ivy White,Finance,ivy.white@enterprise.com,+1-555-669-1166,"$90,000",17/12/2018,Manager 7,Orion,On Leave
+EMP091,Kate Moore,  hr  ,kate.moore@enterprise.com,+1-555-732-2121,"$90,000","Jan 29, 2025",Manager 4,Beta,Resigned
+EMP005,Olivia Jackson,  engineering  ,olivia.jackson@enterprise.com,+1-555-487-2291,110000,"Jan 18, 2025",Manager 10,Delta,Active
+EMP006,Bob Garcia,  finance  ,bob.garcia@enterprise.com,+1-555-181-4814,"$60,000","Apr 06, 2022",Manager 8,Zeta,On Leave
+EMP018,Sophia Jackson,  marketing  ,sophia.jackson@enterprise.com,+1-555-702-4608,45000,2018-10-18,Manager 4,Beta,Active
+EMP015,Alice Brown,Legal,alice.brown@enterprise.com,+1-555-999-6038,"$90,000",26/08/2018,Manager 10,Beta,Active
+EMP053,Noah Moore,HR,noah.moore@enterprise.com,+1-555-498-6507,"$160,000",14/02/2026,Manager 8,Gamma,Active
+EMP039,Frank Thompson,Finance,frank.thompson@enterprise.com,+1-555-139-2776,"$160,000","Nov 16, 2021",Manager 7,Beta,Resigned
+EMP060,Sophia Johnson,Legal,sophia.johnson@enterprise.com,+1-555-645-8018,135000,"Oct 10, 2018",Manager 1,Sigma,Resigned
+EMP009,Ivy Williams,  marketing  ,ivy.williams@enterprise.com,+1-555-680-6155,90000,2025/05/08,Manager 7,Orion,On Leave
+EMP029,Ryan Davis,  finance  ,ryan.davis@enterprise.com,+1-555-235-6718,60000,"Sep 27, 2020",Manager 5,Gamma,Resigned
+EMP079,Peter Martin,  product  ,peter.martin@enterprise.com,+1-555-384-3973,"$160,000",2025/02/13,Manager 2,Orion,Suspended
+EMP042,Jack Jackson,Sales,jack.jackson@enterprise.com,+1-555-296-7888,"$160,000",06/08/2025,Manager 10,Omega,Resigned
+EMP072,Ryan Thomas,Marketing,ryan.thomas@enterprise.com,+1-555-894-9561,"$160,000",2023/01/20,Manager 5,Sigma,Suspended
+EMP080,Noah Martinez,  legal  ,noah.martinez@enterprise.com,+1-555-786-2713,"$75,000",2021/09/12,Manager 8,Omega,Resigned
+EMP004,Grace Martinez,Engineering,grace.martinez@enterprise.com,+1-555-194-7224,"$60,000","Jan 10, 2022",Manager 10,Omega,Active
+EMP061,David Thomas,  legal  ,david.thomas@enterprise.com,+1-555-750-8532,75000,19/11/2022,Manager 9,Omega,Resigned
+EMP030,Ryan Wilson,HR,ryan.wilson@enterprise.com,+1-555-783-5905,"$60,000","Jul 05, 2019",Manager 2,Beta,On Leave
+EMP098,Henry Davis,Finance,henry.davis@enterprise.com,+1-555-794-3240,60000,2025-01-14,Manager 5,Orion,Active
+EMP014,Jack Martin,  marketing  ,jack.martin@enterprise.com,+1-555-256-7126,"$75,000",2024-01-19,Manager 10,Zeta,Resigned
+EMP010,Ivy Jones,  marketing  ,ivy.jones@enterprise.com,+1-555-862-9830,"$110,000",2024/07/22,Manager 10,Sigma,Suspended
+EMP082,Noah Johnson,Marketing,noah.johnson@enterprise.com,+1-555-630-6927,"$185,000",2025/01/05,Manager 1,Delta,Suspended
+EMP049,Ivy Martin,  product  ,ivy.martin@enterprise.com,+1-555-741-4919,"$110,000",2022-12-07,Manager 5,Delta,Suspended
+EMP075,Jack Wilson,Product,jack.wilson@enterprise.com,+1-555-172-4824,"$110,000",04/01/2025,Manager 7,Beta,On Leave
+EMP087,Olivia Jackson,Product,olivia.jackson@enterprise.com,+1-555-453-6446,160000,"Feb 09, 2023",Manager 4,Delta,Resigned
+EMP100,Quinn Martin,  finance  ,quinn.martin@enterprise.com,+1-555-950-3695,110000,"May 28, 2023",Manager 6,Beta,Resigned
+EMP096,Jack Davis,Operations,jack.davis@enterprise.com,+1-555-973-8916,"$60,000",2020/08/29,Manager 10,Zeta,Suspended
+EMP087,Olivia Jackson,Product,olivia.jackson@enterprise.com,+1-555-453-6446,160000,"Feb 09, 2023",Manager 4,Delta,Resigned
+EMP048,Thomas Martin,Operations,thomas.martin@enterprise.com,+1-555-950-9976,"$185,000",2019/10/14,Manager 8,Omega,On Leave
+EMP059,Sophia Taylor,Operations,sophia.taylor@enterprise.com,+1-555-832-4249,"$60,000",22/08/2024,Manager 2,Omega,Active
+EMP016,Peter Williams,Sales,peter.williams@enterprise.com,+1-555-231-8787,75000,2020/12/21,Manager 4,Delta,Suspended
+EMP069,Ryan Jones,  finance  ,ryan.jones@enterprise.com,+1-555-146-1893,110000,27/10/2025,Manager 8,Beta,Active
+EMP034,Sophia Jackson,  sales  ,sophia.jackson@enterprise.com,+1-555-540-3088,45000,"Jun 16, 2021",Manager 1,Zeta,On Leave
+EMP002,Alice Williams,Marketing,alice.williams@enterprise.com,+1-555-338-9279,"$45,000",17/04/2024,Manager 9,Sigma,On Leave
+EMP051,Noah Martinez,  product  ,noah.martinez@enterprise.com,+1-555-525-2020,90000,2022/09/17,Manager 10,Alpha,Resigned
+EMP019,Kate Williams,Marketing,kate.williams@enterprise.com,+1-555-385-8953,90000,18/01/2024,Manager 10,Orion,On Leave
+EMP012,Mia White,  product  ,mia.white@enterprise.com,+1-555-641-5119,"$45,000",2025-08-18,Manager 9,Omega,Suspended
+EMP047,Bob Jackson,  marketing  ,bob.jackson@enterprise.com,+1-555-968-2988,"$185,000",2019/07/01,Manager 9,Zeta,Resigned

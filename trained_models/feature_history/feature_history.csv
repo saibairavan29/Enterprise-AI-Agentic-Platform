@@ -1,0 +1,7 @@
+Model Version,Algorithm,Dataset Version,Timestamp,completeness_score,consistency_score,duplicate_fields,invalid_fields,missing_fields,quality_score,record_age,timeliness_score,uniqueness_score,validity_score
+RF_v1.0.0_20260805_151732,Random Forest,v2.0.0,2026-08-05T09:47:33.809218Z,0.6,0.0,0.0,0.0,0.4,0.0,0.0,0.0,0.0,0.0
+XGB_v1.0.0_20260805_151732,XGBoost,v2.0.0,2026-08-05T09:47:33.847640Z,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0
+RF_v1.0.0_20260805_152459,Random Forest,v2.0.0,2026-08-05T09:55:03.246872Z,0.6,0.0,0.0,0.0,0.4,0.0,0.0,0.0,0.0,0.0
+XGB_v1.0.0_20260805_152459,XGBoost,v2.0.0,2026-08-05T09:55:03.284723Z,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0
+RF_v1.0.0_20260805_152729,Random Forest,v2.0.0,2026-08-05T09:57:31.263974Z,0.6,0.0,0.0,0.0,0.4,0.0,0.0,0.0,0.0,0.0
+XGB_v1.0.0_20260805_152729,XGBoost,v2.0.0,2026-08-05T09:57:31.343358Z,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0

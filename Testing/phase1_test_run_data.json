@@ -1,0 +1,397 @@
+{
+    "system_info": {
+        "timestamp": "2026-07-29T10:43:23.462486",
+        "environment": "development",
+        "db_type": "SQLite3 (Fallback Mode)"
+    },
+    "api_verification": {
+        "health_check": {
+            "status_code": 200,
+            "response": {
+                "success": true,
+                "status_code": 200,
+                "message": "System status check completed successfully.",
+                "data": {
+                    "application": "Enterprise AI Decision Intelligence Platform",
+                    "status": "healthy",
+                    "version": "1.0.0",
+                    "database_connection": "healthy",
+                    "environment": "development"
+                },
+                "errors": [],
+                "timestamp": "2026-07-29T05:13:23.519198+00:00"
+            }
+        },
+        "register_duplicate": {
+            "status_code": 400,
+            "success": false
+        },
+        "login": {
+            "status_code": 200,
+            "has_access_token": true,
+            "has_refresh_token": true
+        },
+        "token_refresh": {
+            "status_code": 200,
+            "has_new_access_token": true
+        },
+        "profile_auth_check": {
+            "status_code": 200,
+            "username": null
+        }
+    },
+    "pipeline_results": [
+        {
+            "filename": "employee_data.xlsx",
+            "upload_success": true,
+            "pipeline_success": true,
+            "parser_type": "EXCEL",
+            "stages_executed": [
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0283,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.2387,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SKIPPED",
+                    "duration": 0.0001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0015,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0186,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.1383,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                }
+            ],
+            "error": null,
+            "processing_status": "COMPLETED"
+        },
+        {
+            "filename": "employee_data.csv",
+            "upload_success": true,
+            "pipeline_success": true,
+            "parser_type": "CSV",
+            "stages_executed": [
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0241,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0049,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SKIPPED",
+                    "duration": 0.0001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0016,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0107,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0985,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                }
+            ],
+            "error": null,
+            "processing_status": "COMPLETED"
+        },
+        {
+            "filename": "employee_data.json",
+            "upload_success": true,
+            "pipeline_success": true,
+            "parser_type": "JSON",
+            "stages_executed": [
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0123,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0007,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SKIPPED",
+                    "duration": 0.0001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0017,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0004,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0224,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                }
+            ],
+            "error": null,
+            "processing_status": "COMPLETED"
+        },
+        {
+            "filename": "employee_report.pdf",
+            "upload_success": true,
+            "pipeline_success": true,
+            "parser_type": "PDF",
+            "stages_executed": [
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0258,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0511,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SKIPPED",
+                    "duration": 0.0001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0028,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0007,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0021,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                }
+            ],
+            "error": null,
+            "processing_status": "COMPLETED"
+        },
+        {
+            "filename": "employee_card.png",
+            "upload_success": true,
+            "pipeline_success": true,
+            "parser_type": "IMAGE",
+            "stages_executed": [
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0174,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0095,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SUCCESS",
+                    "duration": 0.1007,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0014,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0006,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0004,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                }
+            ],
+            "error": null,
+            "processing_status": "COMPLETED"
+        },
+        {
+            "filename": "scanned_invoice.pdf",
+            "upload_success": true,
+            "pipeline_success": true,
+            "parser_type": "PDF",
+            "stages_executed": [
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0304,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0186,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SUCCESS",
+                    "duration": 0.2841,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0074,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0016,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0018,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                }
+            ],
+            "error": null,
+            "processing_status": "COMPLETED"
+        },
+        {
+            "filename": "corrupted.pdf",
+            "upload_success": true,
+            "pipeline_success": false,
+            "parser_type": "PDF",
+            "stages_executed": [],
+            "error": [
+                "Stage 'Parser' failed: Stage 'Parser' failed: Stage returned error state status: FAILED"
+            ],
+            "processing_status": "FAILED"
+        },
+        {
+            "filename": "empty.txt",
+            "upload_success": false,
+            "pipeline_success": false,
+            "parser_type": null,
+            "stages_executed": [],
+            "error": "Validation failed for one or more fields."
+        },
+        {
+            "filename": "duplicate_test.pdf",
+            "upload_success": false,
+            "pipeline_success": false,
+            "parser_type": null,
+            "stages_executed": [],
+            "error": "A document with the exact same content (SHA-256 hash) has already been uploaded."
+        },
+        {
+            "filename": "wrong_extension.pdf",
+            "upload_success": false,
+            "pipeline_success": false,
+            "parser_type": null,
+            "stages_executed": [],
+            "error": "File signature mismatch. The file is not a valid PDF."
+        }
+    ],
+    "summary": {
+        "total_files": 10,
+        "passed": 10,
+        "failed": 0
+    }
+}

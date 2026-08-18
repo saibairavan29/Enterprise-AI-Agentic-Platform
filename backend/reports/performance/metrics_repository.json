@@ -1,0 +1,44 @@
+[
+    {
+        "timestamp": "2026-08-18T11:39:14.891278Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 0.5877017974853516,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-18T11:39:14.966329Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-18T11:39:14.996044Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-18T11:39:15.050677Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 4.39000129699707,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-18T11:39:15.092178Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-18T11:39:15.137979Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    }
+]

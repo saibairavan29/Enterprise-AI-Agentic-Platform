@@ -1,0 +1,386 @@
+[
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T05:18:41.384399Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T05:19:16.780408Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T05:25:43.638603Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T05:26:16.562939Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T05:32:09.484802Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T09:43:31.369134Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T09:58:04.375505Z",
+        "health_score": 73.75,
+        "health_grade": "C",
+        "risk_level": "MEDIUM",
+        "trend": "UPWARD",
+        "metrics": {
+            "overall_quality_score": 70.0,
+            "model_accuracy": 100.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 100.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-05T09:58:59.004941Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "DOWNWARD",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-14T15:17:56.116049Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-14T15:20:17.755491Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-14T15:23:03.324539Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-14T16:19:21.388974Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-14T17:05:54.736611Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-14T17:52:31.180491Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-15T06:10:52.850522Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-15T06:40:27.427005Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T04:13:17.337361Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T04:18:34.000923Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T04:24:41.349394Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T04:32:05.536996Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T04:41:06.464907Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T05:34:23.775478Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T05:35:14.158096Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    },
+    {
+        "report_version": "1.0",
+        "timestamp": "2026-08-18T11:37:37.435348Z",
+        "health_score": 64.25,
+        "health_grade": "D",
+        "risk_level": "HIGH",
+        "trend": "STABLE",
+        "metrics": {
+            "overall_quality_score": 85.0,
+            "model_accuracy": 80.0,
+            "average_confidence": 85.0,
+            "anomaly_percentage": 0.0,
+            "explainability_coverage": 0.0,
+            "recommendation_completion_rate": 0.0
+        }
+    }
+]

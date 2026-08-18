@@ -1,0 +1,10 @@
+{
+    "embedding_model": "MiniLMEmbedding",
+    "similarity_threshold_duplicate": 0.92,
+    "similarity_threshold_consistent": 0.70,
+    "outdated_version_gap": 1,
+    "minimum_sentence_length": 5,
+    "contradiction_keywords": [
+        "not", "no", "never", "except", "increased", "decreased", "higher", "lower", "changed", "adjusted", "reversed", "contrary"
+    ]
+}

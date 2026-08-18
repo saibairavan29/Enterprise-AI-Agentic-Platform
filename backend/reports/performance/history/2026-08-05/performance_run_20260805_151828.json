@@ -1,0 +1,21 @@
+{
+    "timestamp": "2026-08-05T09:48:28.935585Z",
+    "metrics": {
+        "rf_accuracy": 1.0,
+        "rf_precision": 1.0,
+        "rf_recall": 1.0,
+        "rf_f1": 1.0,
+        "rf_roc_auc": 1.0,
+        "xgb_accuracy": 1.0,
+        "xgb_precision": 1.0,
+        "xgb_recall": 1.0,
+        "xgb_f1": 1.0,
+        "xgb_roc_auc": 1.0
+    },
+    "latencies": {
+        "prediction_time_ms": 55.847191292306654,
+        "explanation_time_ms": 45.0279220290806,
+        "recommendation_time_ms": 5.0,
+        "total_time_ms": 105.87511332138726
+    }
+}

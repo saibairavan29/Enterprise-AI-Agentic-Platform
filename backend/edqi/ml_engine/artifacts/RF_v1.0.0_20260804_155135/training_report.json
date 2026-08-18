@@ -1,0 +1,47 @@
+{
+    "report_generated_at": "2026-08-04T10:21:35.532209Z",
+    "model_metadata": {
+        "algorithm": "RANDOM_FOREST",
+        "model_version": "RF_v1.0.0_20260804_155135",
+        "dataset_version": "v1.0.0",
+        "dataset_hash": "e8a6d7b0823662079f0f9b5bec71385753576bf5b54fddc799c4920ad4210b6c",
+        "feature_version": "1.0",
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "roc_auc": 0.0,
+        "cross_validation_score": 1.0,
+        "best_fold_score": 1.0,
+        "worst_fold_score": 1.0,
+        "training_dataset_size": 14,
+        "testing_dataset_size": 6,
+        "validation_dataset_size": 3,
+        "training_time_sec": 0.004510164260864258,
+        "model_size_mb": 0.004403114318847656,
+        "feature_count": 10,
+        "supports_explainability": true,
+        "training_completed_at": "2026-08-04T10:21:35.532184Z",
+        "feature_importance": {
+            "missing_fields": 0.2,
+            "invalid_fields": 0.0,
+            "duplicate_fields": 0.2,
+            "record_age": 0.0,
+            "quality_score": 0.0,
+            "completeness_score": 0.0,
+            "validity_score": 0.2,
+            "consistency_score": 0.0,
+            "uniqueness_score": 0.4,
+            "timeliness_score": 0.0
+        },
+        "training_configuration": {
+            "n_estimators": 5,
+            "max_depth": 20,
+            "random_state": 42,
+            "classes": [
+                "Average",
+                "Excellent"
+            ]
+        }
+    }
+}

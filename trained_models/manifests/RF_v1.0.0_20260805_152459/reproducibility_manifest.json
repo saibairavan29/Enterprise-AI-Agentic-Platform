@@ -1,0 +1,39 @@
+{
+    "dataset_version": "v2.0.0",
+    "dataset_hash": "d4a05e2852ea5029cdc8d159375b931870c1ce2eefeb239a719975c461431faa",
+    "feature_version": "1.0",
+    "feature_names": [
+        "missing_fields",
+        "invalid_fields",
+        "duplicate_fields",
+        "record_age",
+        "quality_score",
+        "completeness_score",
+        "validity_score",
+        "consistency_score",
+        "uniqueness_score",
+        "timeliness_score"
+    ],
+    "pipeline_version": "1.0",
+    "model_version": "RF_v1.0.0_20260805_152459",
+    "random_seed": 42,
+    "training_configuration": {
+        "n_estimators": 10,
+        "max_depth": 20,
+        "random_state": 42,
+        "classes": [
+            "Average",
+            "Good"
+        ]
+    },
+    "library_versions": {
+        "scikit-learn": "1.8.0",
+        "xgboost": "3.3.0",
+        "numpy": "2.4.6",
+        "pandas": "3.0.1",
+        "joblib": "1.5.3"
+    },
+    "python_version": "3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]",
+    "operating_system": "Windows 11",
+    "timestamp": "2026-08-05T09:55:03.523691Z"
+}

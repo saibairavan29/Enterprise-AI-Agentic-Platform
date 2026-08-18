@@ -1,0 +1,32 @@
+# Backend Core Web Framework
+django==6.0.6
+djangorestframework==3.17.1
+django-cors-headers==4.9.0
+
+# Database
+psycopg2-binary==2.9.12
+
+# Authentication
+djangorestframework-simplejwt==5.5.1
+
+# AI/ML & Analytics
+numpy==2.4.6
+pandas==3.0.1
+scikit-learn==1.8.0
+scipy==1.17.1
+sentence-transformers==5.7.0
+torch==2.13.0
+transformers==5.15.0
+huggingface-hub==1.27.0
+shap==0.52.0
+
+# Document Processing & OCR
+pymupdf==1.28.0
+pdfplumber==0.11.9
+openpyxl==3.1.5
+pytesseract==0.3.13
+opencv-python==4.13.0.92
+
+# Development & OpenAPI
+drf-yasg==1.21.15
+python-dotenv==1.2.2

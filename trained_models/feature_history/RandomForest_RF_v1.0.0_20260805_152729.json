@@ -1,0 +1,24 @@
+{
+    "model_version": "RF_v1.0.0_20260805_152729",
+    "algorithm": "Random Forest",
+    "dataset_version": "v2.0.0",
+    "feature_version": "1.0",
+    "timestamp": "2026-08-05T09:57:31.263974Z",
+    "feature_importance": {
+        "missing_fields": 0.4,
+        "invalid_fields": 0.0,
+        "duplicate_fields": 0.0,
+        "record_age": 0.0,
+        "quality_score": 0.0,
+        "completeness_score": 0.6,
+        "validity_score": 0.0,
+        "consistency_score": 0.0,
+        "uniqueness_score": 0.0,
+        "timeliness_score": 0.0
+    },
+    "training_configuration": {
+        "n_estimators": 10,
+        "max_depth": 20,
+        "random_state": 42
+    }
+}

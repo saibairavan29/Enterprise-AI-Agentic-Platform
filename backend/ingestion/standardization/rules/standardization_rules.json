@@ -1,0 +1,49 @@
+{
+    "null_values": [
+        "null",
+        "none",
+        "n/a",
+        "na",
+        "unknown",
+        "",
+        " "
+    ],
+    "boolean_mappings": {
+        "yes": true,
+        "y": true,
+        "1": true,
+        "true": true,
+        "enabled": true,
+        "no": false,
+        "n": false,
+        "0": false,
+        "false": false,
+        "disabled": false
+    },
+    "date_formats": [
+        "%Y-%m-%d",
+        "%m/%d/%Y",
+        "%d/%m/%Y",
+        "%Y/%m/%d",
+        "%d-%b-%Y",
+        "%d-%B-%Y",
+        "%B %d, %Y",
+        "%B %d %Y",
+        "%Y.%m.%d"
+    ],
+    "text_rules": {
+        "default_casing": "none",
+        "field_casings": {
+            "department": "upper",
+            "email": "lower"
+        },
+        "collapse_spaces": true,
+        "unicode_normalization": "NFKC",
+        "convert_smart_quotes": true,
+        "normalize_dashes": true
+    },
+    "numeric_rules": {
+        "currency_symbols": ["$", "€", "£", "¥", "₹"],
+        "strip_separators": true
+    }
+}

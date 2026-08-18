@@ -1,0 +1,122 @@
+[
+    {
+        "start_time": "2026-08-04T10:19:12.499265Z",
+        "dataset_version": "v1.0.0",
+        "errors": [
+            "Invalid classes inferred from unique values of `y`.  Expected: [0 1], got [0 2]"
+        ],
+        "warnings": [],
+        "end_time": "2026-08-04T10:19:12.584032Z"
+    },
+    {
+        "start_time": "2026-08-04T10:20:50.883155Z",
+        "dataset_version": "v1.0.0",
+        "errors": [
+            "name 'EXPECTED_FEATURES' is not defined"
+        ],
+        "warnings": [],
+        "end_time": "2026-08-04T10:20:51.122978Z"
+    },
+    {
+        "start_time": "2026-08-04T10:21:35.289827Z",
+        "dataset_version": "v1.0.0",
+        "errors": [],
+        "warnings": [],
+        "end_time": "2026-08-04T10:21:35.536719Z",
+        "model_version": "RF_v1.0.0_20260804_155135",
+        "training_duration": 0.2469179630279541,
+        "evaluation_metrics": {
+            "accuracy": 1.0,
+            "f1_score": 1.0,
+            "cv_score": 1.0
+        }
+    },
+    {
+        "start_time": "2026-08-04T10:22:06.345836Z",
+        "dataset_version": "v1.0.0",
+        "errors": [],
+        "warnings": [],
+        "end_time": "2026-08-04T10:22:06.598899Z",
+        "model_version": "RF_v1.0.0_20260804_155206",
+        "training_duration": 0.25308871269226074,
+        "evaluation_metrics": {
+            "accuracy": 1.0,
+            "f1_score": 1.0,
+            "cv_score": 1.0
+        }
+    },
+    {
+        "start_time": "2026-08-04T10:22:25.137465Z",
+        "dataset_version": "v1.0.0",
+        "errors": [],
+        "warnings": [],
+        "end_time": "2026-08-04T10:22:25.370050Z",
+        "model_version": "RF_v1.0.0_20260804_155225",
+        "training_duration": 0.23260736465454102,
+        "evaluation_metrics": {
+            "accuracy": 1.0,
+            "f1_score": 1.0,
+            "cv_score": 1.0
+        }
+    },
+    {
+        "start_time": "2026-08-05T09:42:35.005527Z",
+        "dataset_version": "v2.0.0",
+        "errors": [
+            "No quality reports found in database to build dataset."
+        ],
+        "warnings": [],
+        "end_time": "2026-08-05T09:42:35.007062Z"
+    },
+    {
+        "start_time": "2026-08-05T09:44:06.070598Z",
+        "dataset_version": "v2.0.0",
+        "errors": [
+            "No quality reports found in database to build dataset."
+        ],
+        "warnings": [],
+        "end_time": "2026-08-05T09:44:06.072388Z"
+    },
+    {
+        "start_time": "2026-08-05T09:47:31.896690Z",
+        "dataset_version": "v2.0.0",
+        "errors": [],
+        "warnings": [],
+        "end_time": "2026-08-05T09:47:35.185606Z",
+        "model_version": "XGB_v1.0.0_20260805_151732",
+        "training_duration": 3.2889482975006104,
+        "evaluation_metrics": {
+            "accuracy": 1.0,
+            "f1_score": 1.0,
+            "cv_score": 1.0
+        }
+    },
+    {
+        "start_time": "2026-08-05T09:54:57.640326Z",
+        "dataset_version": "v2.0.0",
+        "errors": [],
+        "warnings": [],
+        "end_time": "2026-08-05T09:55:06.303860Z",
+        "model_version": "RF_v1.0.0_20260805_152459",
+        "training_duration": 8.663584470748901,
+        "evaluation_metrics": {
+            "accuracy": 1.0,
+            "f1_score": 1.0,
+            "cv_score": 1.0
+        }
+    },
+    {
+        "start_time": "2026-08-05T09:57:28.598406Z",
+        "dataset_version": "v2.0.0",
+        "errors": [],
+        "warnings": [],
+        "end_time": "2026-08-05T09:57:33.571172Z",
+        "model_version": "XGB_v1.0.0_20260805_152729",
+        "training_duration": 4.9728076457977295,
+        "evaluation_metrics": {
+            "accuracy": 1.0,
+            "f1_score": 1.0,
+            "cv_score": 1.0
+        }
+    }
+]

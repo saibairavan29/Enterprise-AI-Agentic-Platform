@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+env/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3.bak
+db.sqlite3.bak
+media/
+uploads/
+Uploads/
+staticfiles/
+
+# React / Node
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.vite/
+build/
+.eslintcache
+
+# Local Agents & Scratch Artifacts
+.gemini/
+brain/
+scratch/
+tmp/
+temp/
+*.tmp
+
+# Logs
+Logs/
+*.log
+
+# Environment variables
+.env
+
+# Operating System
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Large datasets / local research datasets
+Datasets/

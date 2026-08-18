@@ -1,0 +1,100 @@
+{
+    "report_generated_at": "2026-08-05T09:55:03.516672Z",
+    "model_metadata": {
+        "algorithm": "RANDOM_FOREST",
+        "model_version": "RF_v1.0.0_20260805_152459",
+        "dataset_version": "v2.0.0",
+        "dataset_hash": "d4a05e2852ea5029cdc8d159375b931870c1ce2eefeb239a719975c461431faa",
+        "feature_version": "1.0",
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1_score": 1.0,
+        "roc_auc": 1.0,
+        "confusion_matrix": [
+            [
+                234,
+                0
+            ],
+            [
+                0,
+                93
+            ]
+        ],
+        "classification_report": {
+            "0": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1-score": 1.0,
+                "support": 234.0
+            },
+            "1": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1-score": 1.0,
+                "support": 93.0
+            },
+            "accuracy": 1.0,
+            "macro avg": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1-score": 1.0,
+                "support": 327.0
+            },
+            "weighted avg": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1-score": 1.0,
+                "support": 327.0
+            }
+        },
+        "cv_results": {
+            "fold_accuracies": [
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "fold_f1_scores": [
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "cross_validation_score": 1.0,
+        "best_fold_score": 1.0,
+        "worst_fold_score": 1.0,
+        "training_dataset_size": 761,
+        "testing_dataset_size": 327,
+        "validation_dataset_size": 135,
+        "training_time_sec": 0.05486607551574707,
+        "model_size_mb": 0.007454872131347656,
+        "feature_count": 10,
+        "supports_explainability": true,
+        "training_completed_at": "2026-08-05T09:55:03.515375Z",
+        "feature_importance": {
+            "missing_fields": 0.4,
+            "invalid_fields": 0.0,
+            "duplicate_fields": 0.0,
+            "record_age": 0.0,
+            "quality_score": 0.0,
+            "completeness_score": 0.6,
+            "validity_score": 0.0,
+            "consistency_score": 0.0,
+            "uniqueness_score": 0.0,
+            "timeliness_score": 0.0
+        },
+        "training_configuration": {
+            "n_estimators": 10,
+            "max_depth": 20,
+            "random_state": 42,
+            "classes": [
+                "Average",
+                "Good"
+            ]
+        }
+    }
+}

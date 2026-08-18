@@ -1,0 +1,4 @@
+employee_id,name,role,department,experience_years,current_project,work_location,employment_status,skills,joining_date,email,salary
+EMP001,John Doe,Senior Architect,Engineering,8,Apollo Project,New York,Full-time,"React, Python, Django",2022-03-15,johndoe@enterprise.ai,120000
+EMP002,Jane Smith,HR Specialist,Human Resources,5,Talent Acquisition,Chicago,Full-time,"Recruiting, Onboarding",2023-06-01,janesmith@enterprise.ai,85000
+EMP003,Bob Johnson,Product Manager,Product Management,6,Mobile App,San Francisco,Full-time,"Agile, Jira, Roadmap",2021-11-10,bobjohnson@enterprise.ai,110000

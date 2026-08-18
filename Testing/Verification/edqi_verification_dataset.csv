@@ -1,0 +1,8 @@
+Employee ID,Employee Name,Department,Email,Phone,Salary,Joining Date,Manager,Project,Status
+EMP101,John Doe,Finance,john.doe@enterprise.com,+1-555-123-4567,85000,2025-06-15,Manager 1,Project Alpha,Active
+EMP102,Jane Smith,Marketing,jane.smith@enterprise.com,+1-555-987-6543,92000,2026-02-01,,Project Beta,Active
+EMP103,Alice Jones,Human Resources,alice.jones@enterprise.com,,120000,2024-05-12,Manager 2,Project Gamma,Active
+EMP104,,,,,5000,2024-11-20,,,Active
+EMP105,Bob Wilson,,bob.wilson@enterprise.com,,75000,2024-11-20,,,Active
+EMP106,Charlie Brown,Engineering,charlie.brown@enterprise.com,invalid-phone,60000,2023-08-10,Manager 3,Project Delta,Active
+EMP107,David Miller,Finance,david.miller@enterprise.com,+1-555-888-9999,99999999,2025-06-15,Manager 1,Project Alpha,Active

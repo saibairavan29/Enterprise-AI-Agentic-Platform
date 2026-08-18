@@ -1,0 +1,646 @@
+[
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-05T05:18:41.368804Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:18:41.478816Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-05T05:18:41.502458Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:18:41.530124Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-05T05:25:43.614980Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:25:43.875897Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-05T05:25:43.917066Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:25:43.944418Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-05T05:26:16.536881Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:26:16.764329Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-05T05:26:16.803871Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:26:16.829450Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-05T05:32:09.386400Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:32:10.097993Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-05T05:32:10.163049Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T05:32:10.210033Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-05T09:43:31.336410Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:43:31.615327Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-05T09:43:31.654940Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:43:31.690563Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_20260805_151732",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:47:33.878950Z",
+        "metadata": {}
+    },
+    {
+        "version": "XGB_v1.0.0_20260805_151732",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:47:33.912473Z",
+        "metadata": {}
+    },
+    {
+        "version": "ISO_v1.0.0_20260805_151732",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:47:33.943109Z",
+        "metadata": {}
+    },
+    {
+        "version": "XGB_v1.0.0_20260805_151732",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:47:34.000044Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_20260805_152459",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:55:03.325245Z",
+        "metadata": {}
+    },
+    {
+        "version": "XGB_v1.0.0_20260805_152459",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:55:03.374398Z",
+        "metadata": {}
+    },
+    {
+        "version": "ISO_v1.0.0_20260805_152459",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:55:03.413045Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_20260805_152459",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:55:03.498326Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_20260805_152729",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:57:31.381330Z",
+        "metadata": {}
+    },
+    {
+        "version": "XGB_v1.0.0_20260805_152729",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:57:31.425098Z",
+        "metadata": {}
+    },
+    {
+        "version": "ISO_v1.0.0_20260805_152729",
+        "event": "TRAINED",
+        "timestamp": "2026-08-05T09:57:31.461394Z",
+        "metadata": {}
+    },
+    {
+        "version": "XGB_v1.0.0_20260805_152729",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:57:31.524482Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-05T09:58:58.970071Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:58:59.246429Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-05T09:58:59.289817Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-05T09:58:59.325739Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-14T15:17:56.065950Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T15:17:56.463296Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-14T15:17:56.514381Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T15:17:56.544427Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-14T15:20:17.631156Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T15:20:18.335518Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-14T15:20:18.394287Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T15:20:18.430456Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-14T15:23:03.269242Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T15:23:03.640373Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-14T15:23:03.699047Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T15:23:03.731151Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-14T16:19:21.122534Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T16:19:22.176971Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-14T16:19:22.260907Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T16:19:22.366501Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-14T17:05:54.553711Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T17:05:55.703280Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-14T17:05:55.896198Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T17:05:55.936069Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-14T17:52:31.146310Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T17:52:31.601197Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-14T17:52:31.644891Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-14T17:52:31.673471Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-15T06:10:52.723016Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-15T06:10:53.136220Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-15T06:10:53.179712Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-15T06:10:53.229924Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-15T06:40:27.385088Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-15T06:40:27.764459Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-15T06:40:27.868292Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-15T06:40:27.903603Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T04:13:17.239938Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:13:17.758087Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T04:13:17.837426Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:13:17.954809Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T04:18:33.920650Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:18:34.297031Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T04:18:34.348095Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:18:34.414060Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T04:24:41.313837Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:24:41.658320Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T04:24:41.699638Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:24:41.773092Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T04:32:05.473101Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:32:05.786361Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T04:32:05.843670Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:32:05.920380Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T04:41:06.391332Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:41:06.741108Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T04:41:06.789222Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T04:41:06.822856Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T05:34:23.738767Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T05:34:24.289902Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T05:34:24.343946Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T05:34:24.389344Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T05:35:14.097048Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T05:35:14.471009Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T05:35:14.539835Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T05:35:14.585204Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "FAILED_SYNC",
+        "timestamp": "2026-08-18T11:37:37.377161Z",
+        "metadata": {
+            "error": "Binary artifacts missing on disk."
+        }
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T11:37:37.737938Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_a",
+        "event": "RETIRED",
+        "timestamp": "2026-08-18T11:37:37.804187Z",
+        "metadata": {}
+    },
+    {
+        "version": "RF_v1.0.0_test_b",
+        "event": "ACTIVATED",
+        "timestamp": "2026-08-18T11:37:37.847379Z",
+        "metadata": {}
+    }
+]
