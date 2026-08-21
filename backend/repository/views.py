@@ -461,11 +461,11 @@ class KnowledgeRecordViewSet(viewsets.ModelViewSet):
         return ResponseBuilder.success(message="Record deleted successfully.")
 
 
-class EmployeeDirectoryViewSet(viewsets.ReadOnlyModelViewSet):
+class EmployeeDirectoryViewSet(viewsets.ModelViewSet):
     """
-    Read-Only viewset for the Employee Directory.
+    ViewSet for the Employee Directory.
     Queries records that contain 'employee_id' key in canonical_data JSONField.
-    Only allows list and retrieve GET calls.
+    Only administrators are allowed to create/add records.
     """
     permission_classes = [IsAuthenticated]
     serializer_class = SanitizedEmployeeRecordSerializer
@@ -475,4 +475,118 @@ class EmployeeDirectoryViewSet(viewsets.ReadOnlyModelViewSet):
         return KnowledgeRecord.objects.filter(
             canonical_data__has_key='employee_id'
         ).order_by('-id')
+
+    def create(self, request, *args, **kwargs):
+        # Only admins can create
+        user_role = getattr(request.user, 'role', 'reader').lower()
+        if user_role != 'admin':
+            return ResponseBuilder.error(
+                errors=["Permission Denied"],
+                message="Only administrators can add employees to the directory.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+            
+        data = request.data
+        employee_id = data.get('employee_id')
+        name = data.get('name')
+        email = data.get('email')
+        department = data.get('department')
+        role = data.get('role')
+        
+        if not employee_id or not name or not email or not department or not role:
+            return ResponseBuilder.error(
+                errors=["Missing Fields"],
+                message="Employee ID, Name, Email, Department, and Role are required.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Check if an employee with this employee_id already exists in canonical_data
+        # Note: Using SQLite/Postgres JSON field query syntax for compatibility
+        exists = KnowledgeRecord.objects.filter(
+            canonical_data__employee_id=str(employee_id)
+        ).exists()
+        if exists:
+            return ResponseBuilder.error(
+                errors=["Duplicate ID"],
+                message=f"An employee with ID '{employee_id}' already exists.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get or create a default document for manual entries
+        doc, created = KnowledgeDocument.objects.get_or_create(
+            title="Manual Employee Directory",
+            defaults={
+                "document_type": "HR_RECORD",
+                "repository_status": "SYNCED",
+                "owner": request.user,
+                "schema_resolved": True
+            }
+        )
+
+        canonical_data = {
+            "employee_id": str(employee_id),
+            "name": str(name),
+            "email": str(email),
+            "department": str(department),
+            "role": str(role),
+            "experience_years": int(data.get('experience_years', 0)),
+            "current_project": str(data.get('current_project', 'Bench')),
+            "work_location": str(data.get('work_location', 'Remote')),
+            "employment_status": str(data.get('employment_status', 'Active')),
+            "skills": str(data.get('skills', '')),
+            "joining_date": str(data.get('joining_date', timezone.now().date().isoformat())),
+            "salary": float(data.get('salary', 0.0))
+        }
+
+        record = KnowledgeRecord.objects.create(
+            knowledge_document=doc,
+            entity_type="employee",
+            canonical_data=canonical_data,
+            embedding_status="NOT_GENERATED"
+        )
+        
+        # Create a baseline perfect quality report for manually added employees
+        from edqi.models import EnterpriseDataQualityReport
+        EnterpriseDataQualityReport.objects.create(
+            knowledge_record=record,
+            overall_quality_score=100.0,
+            previous_quality_score=0.0,
+            trend="STABLE",
+            completeness_score=100.0,
+            validity_score=100.0,
+            consistency_score=100.0,
+            uniqueness_score=100.0,
+            timeliness_score=100.0,
+            quality_grade="A+",
+            assessment_status="COMPLETED",
+            assessment_engine_version="1.0",
+            rules_version="1.0",
+            feature_version="1.0",
+            quality_features={
+                "missing_fields": 0,
+                "invalid_fields": 0,
+                "duplicate_fields": 0,
+                "record_age": 0
+            },
+            ml_ready_features={
+                "missing_fields": 0.0,
+                "invalid_fields": 0.0,
+                "duplicate_fields": 0.0,
+                "record_age": 0.0,
+                "quality_score": 100.0,
+                "completeness_score": 100.0,
+                "validity_score": 100.0,
+                "consistency_score": 100.0,
+                "uniqueness_score": 100.0,
+                "timeliness_score": 100.0
+            },
+            processing_trace={"manual_entry": True},
+            metadata={"created_by": request.user.username}
+        )
+
+        return ResponseBuilder.success(
+            data=SanitizedEmployeeRecordSerializer(record).data,
+            message="Employee added successfully.",
+            status_code=status.HTTP_201_CREATED
+        )
 

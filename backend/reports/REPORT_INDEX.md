@@ -1,6 +1,6 @@
 # Enterprise Reports Document Directory Index
 
-Generated At: 2026-08-18T11:39:15.164413Z
+Generated At: 2026-08-21T09:03:25.977627Z
 
 - **Performance Reports:**
   - [PERFORMANCE_METRICS.md](file:///C:/Users/bharathwaj/Desktop/Enterprise Application v2/Enterprise Application/backend/reports/performance/PERFORMANCE_METRICS.md)

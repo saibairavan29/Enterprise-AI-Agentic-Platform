@@ -40,5 +40,341 @@
         "metric": "recommendation_count",
         "value": 1.0,
         "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:20.954383Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 114.59994316101074,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.015614Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.046660Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.136081Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 29.267311096191406,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.186007Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.225342Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.379149Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 21.365880966186523,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.418189Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.463723Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.585813Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 57.50107765197754,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.623308Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.660227Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.986560Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 43.0145263671875,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.033431Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.086645Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.162511Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 25.734424591064453,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.222412Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.259306Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.494315Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 21.81410789489746,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.539230Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.579985Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.654953Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 24.24311637878418,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.697714Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.734267Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.127409Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 25.736331939697266,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.163243Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.226715Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.328769Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 50.383567810058594,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.374426Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.414082Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.752558Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 124.13501739501953,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.793957Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.831925Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.915697Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 27.59838104248047,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.965490Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:24.006706Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:24.863356Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 19.500017166137695,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:24.896270Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:24.970739Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.032015Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 16.252994537353516,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.072970Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.116757Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.727510Z",
+        "module": "prediction",
+        "metric": "prediction_time_ms",
+        "value": 22.67909049987793,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.771439Z",
+        "module": "prediction",
+        "metric": "confidence_score",
+        "value": 0.8944910168647766,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.806861Z",
+        "module": "prediction",
+        "metric": "is_anomaly",
+        "value": 0.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.864136Z",
+        "module": "explainability",
+        "metric": "explanation_time_ms",
+        "value": 15.260696411132812,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.906920Z",
+        "module": "explainability",
+        "metric": "recommendation_time_ms",
+        "value": 5.0,
+        "metadata": {}
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.943609Z",
+        "module": "explainability",
+        "metric": "recommendation_count",
+        "value": 1.0,
+        "metadata": {}
     }
 ]

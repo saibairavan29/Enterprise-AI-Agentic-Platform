@@ -1,10 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import client from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const EmployeeDirectory = () => {
+  const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  // Add Employee Form States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newEmpId, setNewEmpId] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newDept, setNewDept] = useState('');
+  const [newRole, setNewRole] = useState('');
+  const [newExp, setNewExp] = useState(0);
+  const [newProject, setNewProject] = useState('Bench');
+  const [newLocation, setNewLocation] = useState('Remote');
+  const [newStatus, setNewStatus] = useState('Active');
+  const [newSkills, setNewSkills] = useState('');
+  const [newSalary, setNewSalary] = useState(0);
+  const [newJoiningDate, setNewJoiningDate] = useState('');
+  
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [formSuccess, setFormSuccess] = useState('');
   
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,6 +55,64 @@ const EmployeeDirectory = () => {
       setErrorMsg('Failed to load employee directory records.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddEmployee = async (e) => {
+    e.preventDefault();
+    setFormError('');
+    setFormSuccess('');
+    
+    if (!newEmpId || !newName || !newEmail || !newDept || !newRole) {
+      setFormError('Please fill out all required fields (Employee ID, Name, Email, Department, Role).');
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const res = await client.post('repository/employees/', {
+        employee_id: newEmpId,
+        name: newName,
+        email: newEmail,
+        department: newDept,
+        role: newRole,
+        experience_years: parseInt(newExp) || 0,
+        current_project: newProject,
+        work_location: newLocation,
+        employment_status: newStatus,
+        skills: newSkills,
+        salary: parseFloat(newSalary) || 0.0,
+        joining_date: newJoiningDate || new Date().toISOString().split('T')[0]
+      });
+      
+      if (res.data.success) {
+        setFormSuccess('Employee added successfully!');
+        fetchEmployees();
+        setNewEmpId('');
+        setNewName('');
+        setNewEmail('');
+        setNewDept('');
+        setNewRole('');
+        setNewExp(0);
+        setNewProject('Bench');
+        setNewLocation('Remote');
+        setNewStatus('Active');
+        setNewSkills('');
+        setNewSalary(0);
+        setNewJoiningDate('');
+        
+        setTimeout(() => {
+          setShowAddModal(false);
+          setFormSuccess('');
+        }, 1500);
+      } else {
+        setFormError(res.data.message || 'Failed to add employee.');
+      }
+    } catch (err) {
+      console.error(err);
+      setFormError(err.response?.data?.message || 'Error occurred while saving employee record.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -165,6 +244,11 @@ const EmployeeDirectory = () => {
               <button className="btn btn-outline-secondary w-100" onClick={fetchEmployees} disabled={loading}>
                 Refresh
               </button>
+              {user?.role === 'admin' && (
+                <button className="btn btn-premium-primary text-white w-100" onClick={() => setShowAddModal(true)}>
+                  Add
+                </button>
+              )}
             </div>
           </div>
 
@@ -348,6 +432,94 @@ const EmployeeDirectory = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* Add Employee Modal Overlay */}
+      {showAddModal && (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>
+          <div className="modal fade show d-block" tabIndex="-1" style={{ zIndex: 1050 }}>
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content shadow border-0 rounded-3 bg-white" style={{ opacity: 1 }}>
+                <div className="modal-header bg-light py-3">
+                  <h5 className="modal-title fw-bold text-dark">Add New Employee</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowAddModal(false)}></button>
+                </div>
+                <form onSubmit={handleAddEmployee}>
+                  <div className="modal-body p-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                    {formError && <div className="alert alert-danger py-2">{formError}</div>}
+                    {formSuccess && <div className="alert alert-success py-2">{formSuccess}</div>}
+                    
+                    <div className="row g-3">
+                      <div className="col-md-4">
+                        <label className="form-label small fw-semibold text-secondary">Employee ID *</label>
+                        <input type="text" className="form-control" placeholder="EMP001" value={newEmpId} onChange={(e) => setNewEmpId(e.target.value)} required />
+                      </div>
+                      <div className="col-md-8">
+                        <label className="form-label small fw-semibold text-secondary">Full Name *</label>
+                        <input type="text" className="form-control" placeholder="John Doe" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+                      </div>
+                      
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Work Email *</label>
+                        <input type="email" className="form-control" placeholder="johndoe@enterprise.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Department *</label>
+                        <input type="text" className="form-control" placeholder="Engineering" value={newDept} onChange={(e) => setNewDept(e.target.value)} required />
+                      </div>
+                      
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Role / Designation *</label>
+                        <input type="text" className="form-control" placeholder="Software Engineer" value={newRole} onChange={(e) => setNewRole(e.target.value)} required />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label small fw-semibold text-secondary">Experience (Years)</label>
+                        <input type="number" className="form-control" min="0" value={newExp} onChange={(e) => setNewExp(e.target.value)} />
+                      </div>
+                      <div className="col-md-3">
+                        <label className="form-label small fw-semibold text-secondary">Salary (USD/Year)</label>
+                        <input type="number" className="form-control" min="0" value={newSalary} onChange={(e) => setNewSalary(e.target.value)} />
+                      </div>
+
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Current Project</label>
+                        <input type="text" className="form-control" placeholder="Bench" value={newProject} onChange={(e) => setNewProject(e.target.value)} />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Work Location</label>
+                        <input type="text" className="form-control" placeholder="Remote" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
+                      </div>
+
+                      <div className="col-md-12">
+                        <label className="form-label small fw-semibold text-secondary">Skills (Comma-separated)</label>
+                        <input type="text" className="form-control" placeholder="Python, Django, React, SQL" value={newSkills} onChange={(e) => setNewSkills(e.target.value)} />
+                      </div>
+
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Employment Status</label>
+                        <select className="form-select" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                          <option value="Suspended">Suspended</option>
+                        </select>
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label small fw-semibold text-secondary">Joining Date</label>
+                        <input type="date" className="form-control" value={newJoiningDate} onChange={(e) => setNewJoiningDate(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="modal-footer bg-light">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</button>
+                    <button type="submit" className="btn btn-premium-primary btn-sm text-white" disabled={submitting}>
+                      {submitting ? 'Adding...' : 'Add Employee'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

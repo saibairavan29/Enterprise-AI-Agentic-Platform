@@ -11,5 +11,109 @@
             "prediction_time_ms": 0.5877017974853516,
             "explanation_time_ms": 4.39000129699707
         }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:20.954383Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 148.86725425720215,
+            "prediction_time_ms": 114.59994316101074,
+            "explanation_time_ms": 29.267311096191406
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.379149Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 83.86695861816406,
+            "prediction_time_ms": 21.365880966186523,
+            "explanation_time_ms": 57.50107765197754
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:21.986560Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 73.74895095825195,
+            "prediction_time_ms": 43.0145263671875,
+            "explanation_time_ms": 25.734424591064453
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:22.494315Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 51.05722427368164,
+            "prediction_time_ms": 21.81410789489746,
+            "explanation_time_ms": 24.24311637878418
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.127409Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 81.11989974975586,
+            "prediction_time_ms": 25.736331939697266,
+            "explanation_time_ms": 50.383567810058594
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:23.752558Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 156.7333984375,
+            "prediction_time_ms": 124.13501739501953,
+            "explanation_time_ms": 27.59838104248047
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:24.863356Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 40.75301170349121,
+            "prediction_time_ms": 19.500017166137695,
+            "explanation_time_ms": 16.252994537353516
+        }
+    },
+    {
+        "timestamp": "2026-08-21T09:03:25.727510Z",
+        "dataset_version": "v1000",
+        "model_versions": {
+            "random_forest": "RF_v1000",
+            "xgboost": "XGB_v1000"
+        },
+        "execution_times": {
+            "total_pipeline_time_ms": 42.93978691101074,
+            "prediction_time_ms": 22.67909049987793,
+            "explanation_time_ms": 15.260696411132812
+        }
     }
 ]

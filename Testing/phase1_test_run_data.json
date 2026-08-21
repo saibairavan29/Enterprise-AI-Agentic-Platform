@@ -1,6 +1,6 @@
 {
     "system_info": {
-        "timestamp": "2026-07-29T10:43:23.462486",
+        "timestamp": "2026-08-21T14:33:13.733927",
         "environment": "development",
         "db_type": "SQLite3 (Fallback Mode)"
     },
@@ -19,7 +19,7 @@
                     "environment": "development"
                 },
                 "errors": [],
-                "timestamp": "2026-07-29T05:13:23.519198+00:00"
+                "timestamp": "2026-08-21T09:03:17.510003+00:00"
             }
         },
         "register_duplicate": {
@@ -43,107 +43,19 @@
     "pipeline_results": [
         {
             "filename": "employee_data.xlsx",
-            "upload_success": true,
-            "pipeline_success": true,
-            "parser_type": "EXCEL",
-            "stages_executed": [
-                {
-                    "stage": "Validation",
-                    "status": "SUCCESS",
-                    "duration": 0.0283,
-                    "errors": 0
-                },
-                {
-                    "stage": "Parser",
-                    "status": "SUCCESS",
-                    "duration": 0.2387,
-                    "errors": 0
-                },
-                {
-                    "stage": "OCR",
-                    "status": "SKIPPED",
-                    "duration": 0.0001,
-                    "errors": 0
-                },
-                {
-                    "stage": "Metadata",
-                    "status": "SUCCESS",
-                    "duration": 0.0015,
-                    "errors": 0
-                },
-                {
-                    "stage": "SchemaMapping",
-                    "status": "SUCCESS",
-                    "duration": 0.0186,
-                    "errors": 0
-                },
-                {
-                    "stage": "Standardization",
-                    "status": "SUCCESS",
-                    "duration": 0.1383,
-                    "errors": 0
-                },
-                {
-                    "stage": "Persistence",
-                    "status": "SUCCESS",
-                    "duration": 0.001,
-                    "errors": 0
-                }
-            ],
-            "error": null,
-            "processing_status": "COMPLETED"
+            "upload_success": false,
+            "pipeline_success": false,
+            "parser_type": null,
+            "stages_executed": [],
+            "error": "Document uploaded but pipeline execution failed."
         },
         {
             "filename": "employee_data.csv",
-            "upload_success": true,
-            "pipeline_success": true,
-            "parser_type": "CSV",
-            "stages_executed": [
-                {
-                    "stage": "Validation",
-                    "status": "SUCCESS",
-                    "duration": 0.0241,
-                    "errors": 0
-                },
-                {
-                    "stage": "Parser",
-                    "status": "SUCCESS",
-                    "duration": 0.0049,
-                    "errors": 0
-                },
-                {
-                    "stage": "OCR",
-                    "status": "SKIPPED",
-                    "duration": 0.0001,
-                    "errors": 0
-                },
-                {
-                    "stage": "Metadata",
-                    "status": "SUCCESS",
-                    "duration": 0.0016,
-                    "errors": 0
-                },
-                {
-                    "stage": "SchemaMapping",
-                    "status": "SUCCESS",
-                    "duration": 0.0107,
-                    "errors": 0
-                },
-                {
-                    "stage": "Standardization",
-                    "status": "SUCCESS",
-                    "duration": 0.0985,
-                    "errors": 0
-                },
-                {
-                    "stage": "Persistence",
-                    "status": "SUCCESS",
-                    "duration": 0.001,
-                    "errors": 0
-                }
-            ],
-            "error": null,
-            "processing_status": "COMPLETED"
+            "upload_success": false,
+            "pipeline_success": false,
+            "parser_type": null,
+            "stages_executed": [],
+            "error": "Document uploaded but pipeline execution failed."
         },
         {
             "filename": "employee_data.json",
@@ -154,7 +66,49 @@
                 {
                     "stage": "Validation",
                     "status": "SUCCESS",
-                    "duration": 0.0123,
+                    "duration": 0.0223,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0008,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SKIPPED",
+                    "duration": 0.0001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0025,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0009,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0561,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0003,
                     "errors": 0
                 },
                 {
@@ -172,19 +126,19 @@
                 {
                     "stage": "Metadata",
                     "status": "SUCCESS",
-                    "duration": 0.0017,
+                    "duration": 0.0018,
                     "errors": 0
                 },
                 {
                     "stage": "SchemaMapping",
                     "status": "SUCCESS",
-                    "duration": 0.0004,
+                    "duration": 0.0006,
                     "errors": 0
                 },
                 {
                     "stage": "Standardization",
                     "status": "SUCCESS",
-                    "duration": 0.0224,
+                    "duration": 0.0312,
                     "errors": 0
                 },
                 {
@@ -206,13 +160,13 @@
                 {
                     "stage": "Validation",
                     "status": "SUCCESS",
-                    "duration": 0.0258,
+                    "duration": 0.0305,
                     "errors": 0
                 },
                 {
                     "stage": "Parser",
                     "status": "SUCCESS",
-                    "duration": 0.0511,
+                    "duration": 0.1268,
                     "errors": 0
                 },
                 {
@@ -224,19 +178,61 @@
                 {
                     "stage": "Metadata",
                     "status": "SUCCESS",
-                    "duration": 0.0028,
+                    "duration": 0.0069,
                     "errors": 0
                 },
                 {
                     "stage": "SchemaMapping",
                     "status": "SUCCESS",
-                    "duration": 0.0007,
+                    "duration": 0.0017,
                     "errors": 0
                 },
                 {
                     "stage": "Standardization",
                     "status": "SUCCESS",
-                    "duration": 0.0021,
+                    "duration": 0.0028,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0003,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0812,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SKIPPED",
+                    "duration": 0.0001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.004,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0009,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.003,
                     "errors": 0
                 },
                 {
@@ -258,37 +254,79 @@
                 {
                     "stage": "Validation",
                     "status": "SUCCESS",
-                    "duration": 0.0174,
+                    "duration": 0.0248,
                     "errors": 0
                 },
                 {
                     "stage": "Parser",
                     "status": "SUCCESS",
-                    "duration": 0.0095,
+                    "duration": 0.0005,
                     "errors": 0
                 },
                 {
                     "stage": "OCR",
                     "status": "SUCCESS",
-                    "duration": 0.1007,
+                    "duration": 0.2462,
                     "errors": 0
                 },
                 {
                     "stage": "Metadata",
                     "status": "SUCCESS",
-                    "duration": 0.0014,
+                    "duration": 0.0021,
                     "errors": 0
                 },
                 {
                     "stage": "SchemaMapping",
                     "status": "SUCCESS",
-                    "duration": 0.0006,
+                    "duration": 0.001,
                     "errors": 0
                 },
                 {
                     "stage": "Standardization",
                     "status": "SUCCESS",
-                    "duration": 0.0004,
+                    "duration": 0.0009,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0005,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0005,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SUCCESS",
+                    "duration": 0.1267,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0017,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.0007,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0008,
                     "errors": 0
                 },
                 {
@@ -310,37 +348,79 @@
                 {
                     "stage": "Validation",
                     "status": "SUCCESS",
-                    "duration": 0.0304,
+                    "duration": 0.0241,
                     "errors": 0
                 },
                 {
                     "stage": "Parser",
                     "status": "SUCCESS",
-                    "duration": 0.0186,
+                    "duration": 0.0315,
                     "errors": 0
                 },
                 {
                     "stage": "OCR",
                     "status": "SUCCESS",
-                    "duration": 0.2841,
+                    "duration": 0.5436,
                     "errors": 0
                 },
                 {
                     "stage": "Metadata",
                     "status": "SUCCESS",
-                    "duration": 0.0074,
+                    "duration": 0.0065,
                     "errors": 0
                 },
                 {
                     "stage": "SchemaMapping",
                     "status": "SUCCESS",
-                    "duration": 0.0016,
+                    "duration": 0.0011,
                     "errors": 0
                 },
                 {
                     "stage": "Standardization",
                     "status": "SUCCESS",
-                    "duration": 0.0018,
+                    "duration": 0.0009,
+                    "errors": 0
+                },
+                {
+                    "stage": "Persistence",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Validation",
+                    "status": "SUCCESS",
+                    "duration": 0.0003,
+                    "errors": 0
+                },
+                {
+                    "stage": "Parser",
+                    "status": "SUCCESS",
+                    "duration": 0.0217,
+                    "errors": 0
+                },
+                {
+                    "stage": "OCR",
+                    "status": "SUCCESS",
+                    "duration": 0.4769,
+                    "errors": 0
+                },
+                {
+                    "stage": "Metadata",
+                    "status": "SUCCESS",
+                    "duration": 0.0037,
+                    "errors": 0
+                },
+                {
+                    "stage": "SchemaMapping",
+                    "status": "SUCCESS",
+                    "duration": 0.001,
+                    "errors": 0
+                },
+                {
+                    "stage": "Standardization",
+                    "status": "SUCCESS",
+                    "duration": 0.0012,
                     "errors": 0
                 },
                 {
@@ -355,14 +435,11 @@
         },
         {
             "filename": "corrupted.pdf",
-            "upload_success": true,
+            "upload_success": false,
             "pipeline_success": false,
-            "parser_type": "PDF",
+            "parser_type": null,
             "stages_executed": [],
-            "error": [
-                "Stage 'Parser' failed: Stage 'Parser' failed: Stage returned error state status: FAILED"
-            ],
-            "processing_status": "FAILED"
+            "error": "Document uploaded but pipeline execution failed."
         },
         {
             "filename": "empty.txt",
@@ -391,7 +468,7 @@
     ],
     "summary": {
         "total_files": 10,
-        "passed": 10,
-        "failed": 0
+        "passed": 7,
+        "failed": 3
     }
 }

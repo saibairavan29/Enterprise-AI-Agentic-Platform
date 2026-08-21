@@ -962,9 +962,9 @@ const Dashboard = () => {
                         </div>
                       ) : documents.filter(doc => (doc.metadata?.repository_type || 'team') === selectedRepoType).length > 0 ? (
                         <div className="table-responsive">
-                          <table className="table table-dark table-hover align-middle border border-secondary table-sm">
-                            <thead>
-                              <tr className="text-secondary small">
+                          <table className="table table-hover align-middle border table-sm">
+                            <thead className="table-light">
+                              <tr className="small text-secondary">
                                 <th>Document Name</th>
                                 <th>File Type</th>
                                 <th>Version</th>
@@ -983,7 +983,7 @@ const Dashboard = () => {
                                       className={`cursor-pointer ${selectedDoc?.id === doc.id ? 'table-active' : ''}`}
                                       onClick={() => fetchDocumentSubDetails(doc)}
                                     >
-                                      <td className="fw-medium text-white text-truncate" style={{ maxWidth: '180px' }}>
+                                      <td className="fw-medium text-dark text-truncate" style={{ maxWidth: '180px' }}>
                                         {doc.title}
                                       </td>
                                       <td><span className="badge bg-secondary">{fileExt}</span></td>
@@ -1204,11 +1204,11 @@ const Dashboard = () => {
                     ) : previewData ? (
                       <div className="preview-container overflow-auto" style={{ maxHeight: '600px' }}>
                         {previewData.file_type === 'csv' && (
-                          <div className="bg-dark p-2 rounded">
+                          <div className="bg-light p-3 rounded border">
                             <div className="table-responsive">
-                              <table className="table table-dark table-hover table-bordered align-middle table-sm small mb-0">
-                                <thead>
-                                  <tr className="text-secondary small">
+                              <table className="table table-hover table-bordered align-middle table-sm small mb-0">
+                                <thead className="table-light">
+                                  <tr className="small text-secondary">
                                     {previewData.headers.map((h, idx) => <th key={idx}>{h}</th>)}
                                   </tr>
                                 </thead>
@@ -1223,7 +1223,7 @@ const Dashboard = () => {
                             </div>
                             {/* CSV pagination */}
                             {previewData.rows.length > rowsPerPage && (
-                              <div className="d-flex justify-content-between align-items-center mt-3 pt-2 border-top border-secondary">
+                              <div className="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
                                 <span className="small text-secondary">Showing {((csvPage - 1) * rowsPerPage) + 1} to {Math.min(csvPage * rowsPerPage, previewData.rows.length)} of {previewData.rows.length} rows</span>
                                 <div className="btn-group">
                                   <button className="btn btn-premium-secondary btn-sm py-0 px-2" disabled={csvPage === 1} onClick={() => setCsvPage(csvPage - 1)}>Prev</button>
@@ -1235,13 +1235,13 @@ const Dashboard = () => {
                         )}
 
                         {previewData.file_type === 'excel' && (
-                          <div className="bg-dark p-2 rounded">
+                          <div className="bg-light p-3 rounded border">
                             {/* Excel sheets tabs */}
-                            <div className="d-flex flex-wrap gap-2 mb-3 border-bottom border-secondary pb-2">
+                            <div className="d-flex flex-wrap gap-2 mb-3 border-bottom pb-2">
                               {Object.keys(previewData.sheets).map(sheetName => (
                                 <button 
                                   key={sheetName} 
-                                  className={`btn btn-sm ${activeExcelSheet === sheetName ? 'btn-premium-primary text-white' : 'btn-dark text-secondary'}`}
+                                  className={`btn btn-sm ${activeExcelSheet === sheetName ? 'btn-premium-primary text-white' : 'btn-outline-secondary'}`}
                                   onClick={() => { setActiveExcelSheet(sheetName); setCsvPage(1); }}
                                 >{sheetName}</button>
                               ))}
@@ -1252,9 +1252,9 @@ const Dashboard = () => {
                               return (
                                 <>
                                   <div className="table-responsive">
-                                    <table className="table table-dark table-hover table-bordered align-middle table-sm small mb-0">
-                                      <thead>
-                                        <tr className="text-secondary small">
+                                    <table className="table table-hover table-bordered align-middle table-sm small mb-0">
+                                      <thead className="table-light">
+                                        <tr className="small text-secondary">
                                           {sheet.headers.map((h, idx) => <th key={idx}>{h}</th>)}
                                         </tr>
                                       </thead>
