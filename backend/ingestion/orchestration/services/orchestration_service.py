@@ -12,7 +12,11 @@ from ..stages.persistence_stage import PersistenceStage
 from ..response.builder import ResponseBuilder
 from ..repositories.document_repository import DocumentRepository
 
+from concurrent.futures import ThreadPoolExecutor
+
 logger = logging.getLogger('enterprise')
+
+_ingestion_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix='ingestion_worker')
 
 class IngestionOrchestrationService:
     """
@@ -22,6 +26,37 @@ class IngestionOrchestrationService:
     def __init__(self):
         self.doc_repo = DocumentRepository()
         self.response_builder = ResponseBuilder()
+
+    def _async_worker_wrapper(self, document_id, user_obj):
+        from django import db
+        try:
+            db.connections.close_all()
+            return self.process_document(document_id, user_obj)
+        except Exception as e:
+            logger.error(f"Async ingestion worker crashed for Document ID {document_id}: {str(e)}", exc_info=True)
+            try:
+                self.doc_repo.update_document_status(document_id, "FAILED")
+            except Exception:
+                pass
+            raise
+        finally:
+            db.connections.close_all()
+
+    def process_document_async(self, document_id, user_obj):
+        """
+        Dispatches process_document execution to a non-daemon background thread,
+        allowing the upload HTTP request to return immediately.
+        """
+        logger.info(f"Dispatching async background ingestion for Document ID: {document_id}")
+        future = _ingestion_executor.submit(self._async_worker_wrapper, document_id, user_obj)
+        def _log_future_exception(f):
+            try:
+                f.result()
+            except Exception as e:
+                logger.error(f"Async ingestion thread for Document ID {document_id} terminated with unhandled exception: {str(e)}", exc_info=True)
+        future.add_done_callback(_log_future_exception)
+        return future
+
 
     def process_document(self, document_id, user_obj) -> dict:
         """

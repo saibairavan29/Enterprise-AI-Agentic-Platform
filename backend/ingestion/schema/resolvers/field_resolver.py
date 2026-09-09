@@ -30,7 +30,7 @@ class FieldResolver:
         clean_raw = self._clean(raw_field)
 
         # Explicit exclusions to prevent false positive mappings
-        if clean_raw == "name":
+        if clean_raw in ["name", "employeename", "empname", "customername", "suppliername", "vendorname"]:
             return None
 
         # 1. Check direct exact match with canonical name
@@ -55,7 +55,9 @@ class FieldResolver:
                 # If raw field is a substring of the alias, or vice-versa
                 if (len(clean_raw) > 2 and clean_raw in alias) or (len(alias) > 2 and alias in clean_raw):
                     # Do not match generic substring if it's not a strong link
-                    if clean_raw in ["role", "type", "date", "status"]:
+                    if clean_raw in ["role", "type", "date", "status", "name"]:
+                        continue
+                    if canonical == "employee_id" and any(x in clean_raw for x in ["name", "desc", "status", "state", "type", "count"]):
                         continue
                     return {
                         "resolved_field": canonical,
@@ -68,13 +70,15 @@ class FieldResolver:
             if len(clean_raw) >= 4:
                 # Direct starts-with/ends-with
                 if clean_raw.startswith(clean_canonical) or clean_canonical.startswith(clean_raw):
+                    if canonical == "employee_id" and any(x in clean_raw for x in ["name", "desc", "status", "state", "type", "count"]):
+                        continue
                     return {
                         "resolved_field": canonical,
                         "resolution_confidence": "LOW"
                     }
                 # Shares first 4 characters with canonical
                 if len(clean_canonical) >= 4 and clean_raw[:4] == clean_canonical[:4]:
-                    if canonical == "employee_id" and any(x in clean_raw for x in ["status", "state", "type", "count"]):
+                    if canonical == "employee_id" and any(x in clean_raw for x in ["name", "desc", "status", "state", "type", "count"]):
                         continue
                     return {
                         "resolved_field": canonical,
@@ -83,7 +87,7 @@ class FieldResolver:
                 # Shares first 4 characters with any alias
                 for alias in clean_aliases:
                     if len(alias) >= 4 and clean_raw[:4] == alias[:4]:
-                        if canonical == "employee_id" and any(x in clean_raw for x in ["status", "state", "type", "count"]):
+                        if canonical == "employee_id" and any(x in clean_raw for x in ["name", "desc", "status", "state", "type", "count"]):
                             continue
                         return {
                             "resolved_field": canonical,

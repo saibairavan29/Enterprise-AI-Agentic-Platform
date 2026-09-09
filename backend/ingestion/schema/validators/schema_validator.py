@@ -35,10 +35,9 @@ class SchemaValidator:
         if mapping_metadata:
             conflicts = mapping_metadata.get("conflicts", [])
             if conflicts:
-                conflict_desc = ", ".join([f"{c['attempted_key']} vs {c['existing_key']} for {c['canonical_field']}" for c in conflicts])
-                raise SchemaValidationException(
-                    f"Mapping value conflict detected for canonical targets: {conflict_desc}"
-                )
+                conflict_desc = ", ".join([f"{c['attempted_key']} vs {c['existing_key']} for {c['canonical_field']}" for c in conflicts if isinstance(c, dict) and 'attempted_key' in c])
+                # Record conflict warning in metadata without aborting document ingestion
+                mapping_metadata["conflict_warning"] = f"Mapping value conflict recorded: {conflict_desc}"
 
         # 4. Verify empty raw keys do not exist
         additional_fields = record_obj.get("additional_fields", {})

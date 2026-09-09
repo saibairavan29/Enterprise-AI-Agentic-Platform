@@ -3,6 +3,46 @@ from django.db import models
 from django.conf import settings
 from ingestion.models import Document
 
+class RepositoryFolder(models.Model):
+    """
+    Represents a directory folder within the Enterprise Data Repository hierarchy.
+    Supports nested folder structures for both Team and Personal repositories.
+    """
+    REPO_TYPES = [
+        ('team', 'Team Repository'),
+        ('personal', 'Personal Repository'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    repository_type = models.CharField(max_length=20, choices=REPO_TYPES, default='team')
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='repository_folders'
+    )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='subfolders'
+    )
+    logical_path = models.CharField(max_length=1000, db_index=True)
+    is_deleted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        unique_together = [['repository_type', 'parent', 'name']]
+
+    def __str__(self):
+        return f"{self.logical_path} ({self.repository_type})"
+
+
 class KnowledgeDocument(models.Model):
     """
     Represents a unified enterprise knowledge document stored inside the repository.
@@ -24,6 +64,22 @@ class KnowledgeDocument(models.Model):
         blank=True,
         related_name='knowledge_documents',
         help_text="References the original Phase 1 uploaded document."
+    )
+    folder = models.ForeignKey(
+        RepositoryFolder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='documents',
+        help_text="References the logical folder containing this document."
+    )
+    logical_path = models.CharField(max_length=1000, blank=True, default='', db_index=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='owned_knowledge_documents'
     )
     title = models.CharField(max_length=255)
     current_version = models.IntegerField(default=1)

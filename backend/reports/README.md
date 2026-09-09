@@ -12,4 +12,4 @@ This folder holds automatically generated performance dashboards, research diagn
 - `datasets/`: dataset evolution histories
 - `training/`: supervised estimators performance metrics
 
-Use [REPORT_INDEX.md](file:///C:/Users/bharathwaj/Desktop/Enterprise Application v2/Enterprise Application/backend/reports/REPORT_INDEX.md) to navigate files.
+Use [REPORT_INDEX.md](file:///E:/project final year/Enterprise-AI-Agentic-Platform/backend/reports/REPORT_INDEX.md) to navigate files.

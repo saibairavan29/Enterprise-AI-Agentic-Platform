@@ -52,14 +52,18 @@ class ConflictClassifier(BaseClassifier):
         threshold = self.config.get("similarity_threshold_consistent", 0.70)
         sim = similarity_report.get("overall_similarity", 0.0)
         
-        # Check if similarity is high, but we have contradiction terms or value differences
+        # Check if similarity is high, but we have contradiction terms or value/property differences
         has_contradiction = len(evidence.get("contradiction_terms", [])) > 0
         has_numeric_diff = evidence.get("numeric_difference", 0.0) > 0.0
+        prop_diffs = evidence.get("property_differences", [])
+        has_prop_diff = len(prop_diffs) > 0
         
-        if sim >= threshold and (has_contradiction or has_numeric_diff):
+        if sim >= threshold and (has_contradiction or has_numeric_diff or has_prop_diff):
             severity = "HIGH"
             explanation = "Semantic text contradictions identified."
             
+            if has_prop_diff:
+                explanation = f"Conflicting property values detected for: {', '.join(prop_diffs)}."
             if has_numeric_diff:
                 severity = "CRITICAL"
                 explanation = f"Numerical value mismatch detected (difference: {evidence['numeric_difference']})."
@@ -76,18 +80,26 @@ class ConflictClassifier(BaseClassifier):
 
 class OutdatedClassifier(BaseClassifier):
     """
-    Identifies older versions of documents as OUTDATED relative to newer entries.
+    Identifies older versions of documents or timeline date sequence gaps as OUTDATED / TIMELINE_CONFLICT.
     """
     def classify(self, candidate, similarity_report: dict, evidence: dict) -> dict:
         version_gap = evidence.get("version_difference", 0)
+        date_gap = evidence.get("date_difference_days", 0)
+        has_timeline_conflict = evidence.get("timeline_conflict", False)
         
-        # If candidate is SameVersionStrategy and version_gap > 0
-        if candidate.strategy_used == "SameVersionStrategy" and version_gap > 0:
+        if (candidate.strategy_used == "SameVersionStrategy" and version_gap > 0) or (has_timeline_conflict and date_gap > 0):
+            if has_timeline_conflict:
+                explanation = evidence.get("timeline_details") or f"Timeline date sequence mismatch detected ({date_gap} days gap)."
+                severity = "HIGH"
+            else:
+                explanation = f"Source segment belongs to an older document version (version difference: {version_gap})."
+                severity = "MEDIUM"
+
             return {
                 "conflict_type": "OUTDATED",
-                "severity": "MEDIUM",
+                "severity": severity,
                 "confidence": 0.95,
-                "explanation": f"Source segment belongs to an older document version (version difference: {version_gap}).",
+                "explanation": explanation,
                 "evidence": evidence
             }
         return None
@@ -101,12 +113,13 @@ class ConsistencyClassifier(BaseClassifier):
         threshold = self.config.get("similarity_threshold_consistent", 0.70)
         sim = similarity_report.get("overall_similarity", 0.0)
         
-        # If similar but has no version gap, no contradiction terms, and no numeric diff
+        # If similar but has no version gap, no contradiction terms, no property diffs, and no numeric diff
         has_contradiction = len(evidence.get("contradiction_terms", [])) > 0
         has_numeric_diff = evidence.get("numeric_difference", 0.0) > 0.0
+        has_prop_diff = len(evidence.get("property_differences", [])) > 0
         version_gap = evidence.get("version_difference", 0)
         
-        if sim >= threshold and not has_contradiction and not has_numeric_diff and version_gap == 0:
+        if sim >= threshold and not has_contradiction and not has_numeric_diff and not has_prop_diff and version_gap == 0:
             return {
                 "conflict_type": "CONSISTENT",
                 "severity": "LOW",

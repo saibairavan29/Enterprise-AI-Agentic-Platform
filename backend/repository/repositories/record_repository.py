@@ -18,8 +18,8 @@ class RecordRepository:
     def create(self, **fields):
         return KnowledgeRecord.objects.create(**fields)
 
-    def bulk_create(self, records_list):
-        return KnowledgeRecord.objects.bulk_create(records_list)
+    def bulk_create(self, records_list, batch_size=500):
+        return KnowledgeRecord.objects.bulk_create(records_list, batch_size=batch_size)
 
     def delete_by_document(self, knowledge_document_id):
         return KnowledgeRecord.objects.filter(knowledge_document_id=knowledge_document_id).delete()

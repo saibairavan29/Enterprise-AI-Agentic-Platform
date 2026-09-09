@@ -31,35 +31,19 @@ class ConflictSerializer(serializers.ModelSerializer):
         ]
 
     def _sanitize_record(self, record):
+        if not record:
+            return None
         raw = {}
         if record.canonical_data:
             raw.update(record.canonical_data)
         if record.additional_fields:
             raw.update(record.additional_fields)
             
-        mapped = {}
+        sanitized = {}
         for k, v in raw.items():
-            mapped[k.lower().replace(" ", "_")] = v
-            
-        allowed = {}
-        def get_val(keys):
-            for k in keys:
-                if k in mapped:
-                    return mapped[k]
-            return None
-
-        allowed["employee_id"] = get_val(["employee_id", "id"])
-        allowed["name"] = get_val(["employee_name", "name"])
-        allowed["role"] = get_val(["role", "manager", "role_title"])
-        allowed["department"] = get_val(["department"])
-        allowed["experience_years"] = get_val(["experience_years", "experience"])
-        allowed["current_project"] = get_val(["current_project", "project"])
-        allowed["work_location"] = get_val(["work_location", "location"])
-        allowed["employment_status"] = get_val(["employment_status", "status"])
-        allowed["skills"] = get_val(["skills"])
-        allowed["joining_date"] = get_val(["joining_date"])
-        allowed["email"] = get_val(["email"])
-        return allowed
+            if v is not None:
+                sanitized[str(k).strip()] = v
+        return sanitized
 
     def get_source_record(self, obj):
         cand = obj.knowledge_candidate

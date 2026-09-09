@@ -64,7 +64,8 @@ class EvolutionReportBuilder:
                 f"| {h['dataset_version']} | {h['record_count']} | {h['feature_count']} | {h['dataset_size_mb']} MB | {h['dataset_hash'][:16]}... | {h['created_by']} | {h['created_date']} |"
             )
         
-        md_content = f"""# Enterprise Dataset Evolution History Report
+        rows_str = "\n".join(md_rows) if md_rows else "| - | - | - | - | - | - | - |"
+        md_content = f"""# Enterprise Platform Dataset Version History Report
 
 **Metadata Header**
 - **Project:** Enterprise AI Decision Intelligence Platform
@@ -80,7 +81,7 @@ class EvolutionReportBuilder:
 
 | Version | Records | Features | Size | SHA-256 | Created By | Created Date |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-{"\n".join(md_rows) if md_rows else "| - | - | - | - | - | - | - |"}
+{rows_str}
 """
         with open(md_path, 'w') as f:
             f.write(md_content)

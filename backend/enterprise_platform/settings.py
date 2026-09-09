@@ -111,6 +111,9 @@ except Exception:
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            'OPTIONS': {
+                'timeout': 60,
+            },
         }
     }
 # Password validation
@@ -150,8 +153,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS Settings
 CORS_ALLOWED_ORIGINS = [
-    origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(',') if origin
+    origin.strip() for origin in os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000').split(',') if origin
 ]
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework Configuration
@@ -203,10 +207,9 @@ LOGGING = {
             'formatter': 'simple',
         },
         'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
+            'class': 'logging.FileHandler',
             'filename': LOG_FILE_PATH,
-            'maxBytes': 10 * 1024 * 1024,  # 10 MB
-            'backupCount': 5,
+            'encoding': 'utf-8',
             'formatter': 'verbose',
         },
     },
@@ -227,3 +230,8 @@ LOGGING = {
         },
     },
 }
+
+# File Upload Configuration for Large Files (Supports up to 5GB per file)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB max request payload size
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB memory threshold before streaming file to disk temp
+

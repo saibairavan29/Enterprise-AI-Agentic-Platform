@@ -570,6 +570,7 @@ const ConflictConsole = () => {
                   const src = selectedConflict.source_record || {};
                   const tgt = selectedConflict.target_record || {};
                   const diffs = [];
+                  
                   const keys = Array.from(new Set([...Object.keys(src), ...Object.keys(tgt)]));
                   keys.forEach(k => {
                     if (k === 'notes') return;
@@ -577,12 +578,40 @@ const ConflictConsole = () => {
                     const tgtVal = tgt[k] !== null && tgt[k] !== undefined ? String(tgt[k]).trim() : '';
                     if (srcVal.toLowerCase() !== tgtVal.toLowerCase()) {
                       diffs.push({
-                        field: k.replace('_', ' ').toUpperCase(),
+                        field: k.replace(/_/g, ' ').toUpperCase(),
                         src: src[k],
                         tgt: tgt[k]
                       });
                     }
                   });
+
+                  if (diffs.length === 0 && selectedConflict.source_text && selectedConflict.target_text) {
+                    const parseKv = (txt) => {
+                      const kv = {};
+                      (txt || '').split('|').forEach(part => {
+                        if (part.includes(':')) {
+                          const [k, v] = part.split(':', 2);
+                          kv[k.trim()] = v.trim();
+                        }
+                      });
+                      return kv;
+                    };
+                    const kv1 = parseKv(selectedConflict.source_text);
+                    const kv2 = parseKv(selectedConflict.target_text);
+                    const kvKeys = Array.from(new Set([...Object.keys(kv1), ...Object.keys(kv2)]));
+                    kvKeys.forEach(k => {
+                      if (k.toLowerCase() === 'entity type') return;
+                      const v1 = kv1[k] || '';
+                      const v2 = kv2[k] || '';
+                      if (v1.toLowerCase() !== v2.toLowerCase()) {
+                        diffs.push({
+                          field: k.toUpperCase(),
+                          src: kv1[k] || 'N/A',
+                          tgt: kv2[k] || 'N/A'
+                        });
+                      }
+                    });
+                  }
 
                   if (diffs.length > 0) {
                     return (
@@ -596,8 +625,8 @@ const ConflictConsole = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {diffs.map(d => (
-                              <tr key={d.field}>
+                            {diffs.map((d, idx) => (
+                              <tr key={idx}>
                                 <td className="fw-bold text-dark font-monospace">{d.field}</td>
                                 <td className="text-danger font-monospace fw-bold">{d.src !== null && d.src !== undefined ? String(d.src) : <span className="text-muted small">None</span>}</td>
                                 <td className="text-success font-monospace fw-bold">{d.tgt !== null && d.tgt !== undefined ? String(d.tgt) : <span className="text-muted small">None</span>}</td>
@@ -610,7 +639,7 @@ const ConflictConsole = () => {
                   } else {
                     return (
                       <div className="alert alert-info py-2 px-3 small border-0 bg-light text-dark font-monospace mb-3">
-                        These records contain the same employee information.
+                        {selectedConflict.explanation || "No property differences identified between these compared entries."}
                       </div>
                     );
                   }

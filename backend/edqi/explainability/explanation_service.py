@@ -43,7 +43,7 @@ class ExplanationService:
         
         # 1. Cache Check
         cached_report = self.cache.get(prediction_id)
-        if cached_report:
+        if cached_report and "source_provenance" in cached_report:
             return cached_report
 
         # 2. Retrieve prediction history record
@@ -144,7 +144,30 @@ class ExplanationService:
 
         # 8. Generate Quality recommendations fixes
         recommendation_start = time.time()
-        recs_list = self.recommendation_engine.generate_recommendations(clean_features)
+        
+        kr = prediction_record.knowledge_record
+        cdata = kr.canonical_data if kr else {}
+        source_file = "Ingested Dataset File"
+        if kr and kr.knowledge_document:
+            doc = kr.knowledge_document
+            source_file = doc.title
+            if doc.source_document and doc.source_document.original_name:
+                source_file = doc.source_document.original_name
+            elif doc.metadata and doc.metadata.get("file", {}).get("original_name"):
+                source_file = doc.metadata.get("file", {}).get("original_name")
+
+        record_label = ""
+        if cdata.get("employee_id"):
+            record_label = f"Employee {cdata.get('employee_id')} ({cdata.get('name', 'N/A')})"
+        elif kr:
+            record_label = f"Record ID {kr.id}"
+
+        recs_list = self.recommendation_engine.generate_recommendations(
+            clean_features,
+            canonical_data=cdata,
+            source_file=source_file,
+            record_label=record_label
+        )
         recommendation_duration = (time.time() - recommendation_start) * 1000.0
 
         overall_duration = (time.time() - start_time) * 1000.0
@@ -246,6 +269,17 @@ class ExplanationService:
             "model_version": report.model_version,
             "dataset_version": report.dataset_version,
             "feature_version": report.feature_version,
+            "source_provenance": {
+                "source_file": source_file,
+                "document_id": str(doc.id) if (kr and kr.knowledge_document) else "",
+                "record_count": doc.record_count if (kr and kr.knowledge_document) else 1,
+                "record_id": str(kr.id) if kr else "N/A",
+                "record_label": record_label,
+                "employee_id": cdata.get("employee_id"),
+                "employee_name": cdata.get("name"),
+                "department": cdata.get("department"),
+                "canonical_data": cdata
+            },
             "processing_trace": report.processing_trace,
             "created_at": report.created_at.isoformat() if report.created_at else datetime.now().isoformat()
         }

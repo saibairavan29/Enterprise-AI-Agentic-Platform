@@ -57,6 +57,10 @@ class RulesLoader:
                     "numeric_fields": {
                         "salary": {"window": 1000.0}
                     }
+                },
+                "UniversalCrossCheckStrategy": {
+                    "enabled": True,
+                    "confidence": 85
                 }
             }
         }

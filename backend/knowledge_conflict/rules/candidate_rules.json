@@ -32,6 +32,10 @@
                     "window": 1000.0
                 }
             }
+        },
+        "UniversalCrossCheckStrategy": {
+            "enabled": true,
+            "confidence": 85
         }
     }
 }

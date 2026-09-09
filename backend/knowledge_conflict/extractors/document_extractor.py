@@ -22,6 +22,7 @@ class DocumentExtractor(BaseExtractor):
                 "section": "Raw Content",
                 "metadata": {
                     "source_field": "raw_content",
+                    "document_id": doc_id,
                     "title": document.title,
                     "version": document.current_version
                 }
@@ -38,6 +39,7 @@ class DocumentExtractor(BaseExtractor):
                     "section": "Metadata Header",
                     "metadata": {
                         "source_field": f"metadata.{key}",
+                        "document_id": doc_id,
                         "title": document.title,
                         "version": document.current_version
                     }

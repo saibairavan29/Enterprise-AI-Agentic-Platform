@@ -1,6 +1,8 @@
 from repository.repositories.record_repository import RecordRepository
 from repository.models import KnowledgeRecord
 
+from common.json_utils import enforce_json_boundary
+
 class UpdateRecordsStage:
     """
     Stage 6: Remove old canonical records and bulk-insert the newly synchronized 
@@ -38,12 +40,13 @@ class UpdateRecordsStage:
                 KnowledgeRecord(
                     knowledge_document=knowledge_doc,
                     entity_type=entity_type,
-                    canonical_data=canonical_data,
-                    additional_fields=additional_fields,
+                    canonical_data=enforce_json_boundary(canonical_data, label="KnowledgeRecord.canonical_data"),
+                    additional_fields=enforce_json_boundary(additional_fields, label="KnowledgeRecord.additional_fields"),
                     embedding_status='NOT_GENERATED',
                     embedding_reference=None
                 )
             )
+
 
         # Bulk create records
         if record_instances:

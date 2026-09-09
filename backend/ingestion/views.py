@@ -33,45 +33,36 @@ class DocumentUploadView(APIView):
             upload_service = DocumentUploadService()
             doc = upload_service.execute(uploaded_file, request.user)
             
-            # Save repository type visibility scope in metadata
+            # Save repository type visibility scope and folder path in metadata
             repository_type = serializer.validated_data.get('repository_type', 'team')
-            doc.metadata = {"repository_type": repository_type}
+            folder_id = serializer.validated_data.get('folder_id', '')
+            relative_path = serializer.validated_data.get('relative_path', '')
+            target_logical_path = serializer.validated_data.get('target_logical_path', '')
+            
+            doc.metadata = {
+                "repository_type": repository_type,
+                "folder_id": folder_id,
+                "relative_path": relative_path,
+                "target_logical_path": target_logical_path
+            }
+            doc.processing_status = 'PROCESSING'
             doc.save()
             
-            # Trigger pipeline orchestration
+            # Dispatch background ingestion pipeline (decoupled HTTP execution)
             from .orchestration.services.orchestration_service import IngestionOrchestrationService
             orchestrator = IngestionOrchestrationService()
-            orchestrator_res = orchestrator.process_document(doc.id, request.user)
+            orchestrator.process_document_async(doc.id, request.user)
             
-            # Fetch updated document state
-            doc.refresh_from_db()
-            
-            if not orchestrator_res.get("success", False):
-                doc.delete()  # Clean up failed document record to allow re-upload attempts
-                return Response({
-                    "success": False,
-                    "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    "message": "Document uploaded but pipeline execution failed.",
-                    "data": {
-                        "document_id": doc.id,
-                        "file_name": doc.original_name,
-                        "processing_status": doc.processing_status,
-                        "pipeline_result": orchestrator_res
-                    },
-                    "errors": orchestrator_res.get("errors", []),
-                    "timestamp": timezone.now().isoformat()
-                }, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-            
-            # Format successful response matching refined schema (status code 201)
+            # Format response returning immediately after upload registration (status code 201)
             return Response({
                 "success": True,
                 "status_code": status.HTTP_201_CREATED,
-                "message": "Document uploaded and processed successfully.",
+                "message": "File uploaded successfully. Ingestion processing started in background.",
                 "data": {
                     "document_id": doc.id,
                     "file_name": doc.original_name,
-                    "processing_status": doc.processing_status,
-                    "pipeline_result": orchestrator_res
+                    "file_size": doc.file_size,
+                    "processing_status": "PROCESSING"
                 },
                 "errors": [],
                 "timestamp": timezone.now().isoformat()
@@ -90,3 +81,82 @@ class DocumentUploadView(APIView):
         except Exception as e:
             logger.error(f"Critical error during document upload view handler: {str(e)}", exc_info=True)
             raise e
+
+
+class DocumentStatusView(APIView):
+    """
+    API endpoint returning real-time processing status, real stage states, and ProcessingHistory records.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, doc_id, *args, **kwargs):
+        from .models import Document
+        try:
+            doc = Document.objects.get(id=doc_id)
+            histories = doc.processing_histories.all().order_by('id')
+            
+            all_stages = ['Validation', 'Parser', 'OCR', 'Metadata', 'SchemaMapping', 'Standardization', 'Persistence']
+            stage_history_map = {h.stage_name: h for h in histories}
+            
+            stage_execution = {}
+            current_stage = None
+            last_failed_stage = None
+            
+            for stage_name in all_stages:
+                if stage_name in stage_history_map:
+                    h = stage_history_map[stage_name]
+                    stage_execution[stage_name] = {
+                        "status": h.stage_status,
+                        "execution_time": h.execution_duration,
+                        "start_time": h.start_time.isoformat() if h.start_time else None,
+                        "end_time": h.end_time.isoformat() if h.end_time else None
+                    }
+                    if h.stage_status == 'EXECUTING':
+                        current_stage = stage_name
+                    elif h.stage_status == 'FAILED':
+                        last_failed_stage = stage_name
+                else:
+                    stage_execution[stage_name] = {
+                        "status": "PENDING",
+                        "execution_time": 0.0,
+                        "start_time": None,
+                        "end_time": None
+                    }
+
+            elapsed_time = round((timezone.now() - doc.created_at).total_seconds(), 3)
+            
+            # Lightweight standardized preview if completed
+            std_record_preview = None
+            if doc.processing_status == 'COMPLETED' and doc.standardized_record:
+                std_rec = doc.standardized_record
+                if isinstance(std_rec, dict):
+                    raw_recs = std_rec.get("standardized_record", []) or std_rec.get("records", [])
+                    if isinstance(raw_recs, list):
+                        preview_list = raw_recs[:10]
+                        std_record_preview = {
+                            "records_preview": preview_list,
+                            "total_records": len(raw_recs),
+                            "preview_truncated": len(raw_recs) > 10
+                        }
+                    else:
+                        std_record_preview = std_rec
+
+            return Response({
+                "success": True,
+                "document_id": doc.id,
+                "file_name": doc.original_name,
+                "file_size": doc.file_size,
+                "processing_status": doc.processing_status,
+                "current_stage": current_stage,
+                "last_failed_stage": last_failed_stage,
+                "elapsed_time": elapsed_time,
+                "stage_execution": stage_execution,
+                "standardized_preview": std_record_preview,
+                "metadata": doc.metadata or {}
+            })
+        except Document.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": f"Document ID {doc_id} not found."
+            }, status=status.HTTP_404_NOT_FOUND)
+

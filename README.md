@@ -4,11 +4,16 @@ A state-of-the-art enterprise-grade platform that ingests, cleanses, standardize
 
 ---
 
-## 1. Core Feature Highlights
-- **Phase 1 Ingestion Pipeline**: Cryptographic duplicate checking (SHA-256), signature validation, and multi-format support (`.pdf`, `.xlsx`, `.csv`, `.json`, `.txt`, `.png`).
-- **Phase 2 Schema Resolution**: Custom resolvers to map varied files into standard enterprise fields with boundary checks preventing substring collisions.
-- **Phase 3 Logical Repository**: Private vs Public repository separation (role-based boundary rules) and local file streaming for document previews.
-- **Phase 4 EDQI (Explainable AI)**: Weighted quality profiling scoring, RandomForest quality grade classification, confidence metrics, clamped local fallback attributions, and dynamic improvement point recommendations.
+## 1. Development Roadmap & Feature Highlights
+- **Phase 0 Architecture Setup**: Modular Django architecture, standardized REST envelope schema, and PostgreSQL/SQLite dual-database support.
+- **Phase 1 Data Ingestion Pipeline**: Cryptographic duplicate checking (SHA-256), signature validation, and multi-format support (`.pdf`, `.docx`, `.xlsx`, `.csv`, `.json`, `.txt`, `.png`).
+- **Phase 2 Knowledge Repository & Schema Resolution**: Canonical schema resolvers mapping varied headers into standard enterprise fields with multi-version diff rules.
+- **Phase 3 Business Intelligence Dashboard**: Interactive Employee Directory management controls, multi-source bulk import, and custom pagination.
+- **Phase 4 Data Quality Intelligence (EDQI)**: Weighted quality profiling scoring, RandomForest quality grade classification, confidence metrics, SHAP attributions, and live dataset fix recommendations.
+- **Phase 5 Knowledge Conflict Detection (EKCD)**: Attribute-value contradiction detection across sources with severity tracking and conflict review workflows.
+- **Phase 6 Enterprise Knowledge Assistant (CURRENT PHASE — IN PROGRESS)**: RAG + local `phi3.5:latest` chatbot featuring scope-first document resolution, normalized evidence contract (`EvidenceItem`), Knowledge Graph evidence fusion, deterministic reasoning engine (`EnterpriseReasoningEngine`), universal claim-to-evidence traceability mapping (`claims_mapping`), and 4-level progressive response synthesis (Direct Answer, Detailed, In-depth, Comprehensive).
+- **Phase 7 AI-Based Policy Impact Simulator (NEXT PHASE — NOT STARTED)**: Machine learning predictive simulation (RandomForest, XGBoost) and SHAP impact analysis.
+- **Phase 8 Real-Time Data Streaming & Processing (FUTURE PHASE — NOT STARTED)**: Celery async task queue and event streaming pipeline.
 
 ---
 

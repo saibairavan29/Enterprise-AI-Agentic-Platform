@@ -20,6 +20,7 @@ class HealthReportBuilder:
                 f"| {h['timestamp']} | {h['health_score']}% | {h['health_grade']} | {h['risk_level']} | {h['trend']} |"
             )
         
+        rows_str = "\n".join(md_rows) if md_rows else "| - | - | - | - | - |"
         md_content = f"""# Enterprise Platform Quality Health History Report
 
 **Metadata Header**
@@ -36,7 +37,7 @@ class HealthReportBuilder:
 
 | Timestamp | Health Score (%) | Grade | Risk Level | Trend |
 | :--- | :--- | :--- | :--- | :--- |
-{"\n".join(md_rows) if md_rows else "| - | - | - | - | - |"}
+{rows_str}
 """
         with open(md_path, 'w') as f:
             f.write(md_content)

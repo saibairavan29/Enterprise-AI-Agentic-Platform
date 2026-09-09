@@ -4,10 +4,15 @@ from common.constants import MAX_UPLOAD_SIZE, SUPPORTED_EXTENSIONS
 
 def validate_file_size(file):
     """
-    Validates that the uploaded file size is within limits (25MB).
+    Validates that the uploaded file size is within configured limits (up to 1GB).
     """
     if file.size > MAX_UPLOAD_SIZE:
-        raise ValidationError(f"File size exceeds the maximum limit of {MAX_UPLOAD_SIZE / (1024 * 1024)}MB.")
+        max_mb = MAX_UPLOAD_SIZE / (1024 * 1024)
+        if max_mb >= 1024:
+            limit_str = f"{max_mb / 1024:.1f}GB"
+        else:
+            limit_str = f"{max_mb:.0f}MB"
+        raise ValidationError(f"File size exceeds the maximum configured limit of {limit_str}.")
 
 def validate_file_extension(file_name):
     """

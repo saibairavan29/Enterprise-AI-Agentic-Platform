@@ -22,15 +22,15 @@ class ConflictRepository:
     def create(self, **fields) -> KnowledgeConflict:
         return KnowledgeConflict.objects.create(**fields)
 
-    def bulk_create(self, conflicts_list) -> list:
+    def bulk_create(self, conflicts_list, batch_size=500) -> list:
         if not conflicts_list:
             return []
-        return KnowledgeConflict.objects.bulk_create(conflicts_list)
+        return KnowledgeConflict.objects.bulk_create(conflicts_list, batch_size=batch_size)
 
-    def bulk_update(self, conflicts_list, fields_to_update) -> int:
+    def bulk_update(self, conflicts_list, fields_to_update, batch_size=500) -> int:
         if not conflicts_list:
             return 0
-        return KnowledgeConflict.objects.bulk_update(conflicts_list, fields_to_update)
+        return KnowledgeConflict.objects.bulk_update(conflicts_list, fields_to_update, batch_size=batch_size)
 
     def archive(self, conflict_id) -> bool:
         """Soft-deletes/archives a conflict entry."""

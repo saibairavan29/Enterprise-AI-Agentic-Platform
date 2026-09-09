@@ -40,8 +40,9 @@ class FieldMapper(BaseMapper):
                             "attempted_value": raw_val,
                             "existing_value": existing_val
                         })
-                        # Keep the first resolved value, discard conflict to avoid data mutation
-                        continue
+                    # Route duplicate/conflicting secondary key to additional_fields to preserve data
+                    additional_fields[raw_key] = raw_val
+                    continue
                 else:
                     resolved_sources[canonical_key] = raw_key
                 

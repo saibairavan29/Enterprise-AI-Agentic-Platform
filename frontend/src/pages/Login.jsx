@@ -85,6 +85,28 @@ const Login = () => {
               <p className="text-secondary small">{isRegister ? 'Create an enterprise identity' : 'Verify credentials'}</p>
             </div>
 
+            {!isRegister && (
+              <div className="alert alert-info border-0 py-2 small mb-3 text-center">
+                <div className="fw-bold mb-1">🔑 Demo Login Credentials:</div>
+                <div className="d-flex gap-2 justify-content-center">
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-dark font-monospace border-secondary py-0 px-2"
+                    onClick={() => setFormData(prev => ({ ...prev, username: 'admin', password: 'Password123!' }))}
+                  >
+                    Use `admin`
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-dark font-monospace border-secondary py-0 px-2"
+                    onClick={() => setFormData(prev => ({ ...prev, username: 'admin_runner', password: 'Password123!' }))}
+                  >
+                    Use `admin_runner`
+                  </button>
+                </div>
+              </div>
+            )}
+
             {errorMsg && (
               <div className="alert alert-danger border-0 py-2">
                 {errorMsg}

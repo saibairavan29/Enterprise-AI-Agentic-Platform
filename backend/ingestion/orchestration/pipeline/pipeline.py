@@ -68,20 +68,44 @@ class Pipeline:
         
         start_time = time.perf_counter()
 
+        from ..repositories.processing_repository import ProcessingRepository
+        from ..repositories.document_repository import DocumentRepository
+        proc_repo = ProcessingRepository()
+        doc_repo = DocumentRepository()
+
+        if context.uploaded_document:
+            doc_repo.update_document_status(context.uploaded_document.id, "PROCESSING")
+
         for stage in self.stages:
+            stage_start_dt = datetime.now()
             stage_start_time = time.perf_counter()
             self.before_stage_execution(stage, context)
+            
+            if context.uploaded_document:
+                proc_repo.create_or_update_history(
+                    pipeline_id=context.pipeline_id,
+                    document_id=context.uploaded_document.id,
+                    stage_name=stage.name,
+                    stage_status="EXECUTING",
+                    start_time=stage_start_dt,
+                    end_time=stage_start_dt,
+                    duration=0.0,
+                    retry_count=context.retry_count,
+                    warnings_count=0,
+                    errors_count=0
+                )
             
             try:
                 # Invoke Standard Stage Contract
                 result = stage.execute(context)
+                stage_end_dt = datetime.now()
                 stage_elapsed = round(time.perf_counter() - stage_start_time, 4)
                 
                 status = result.get("status", "SUCCESS")
                 
                 context.timestamps["stages"][stage.name] = {
-                    "start": datetime.now(),
-                    "end": datetime.now(),
+                    "start": stage_start_dt,
+                    "end": stage_end_dt,
                     "duration": stage_elapsed,
                     "status": status
                 }
@@ -91,13 +115,28 @@ class Pipeline:
                     "execution_time": stage_elapsed
                 }
 
+                if context.uploaded_document:
+                    proc_repo.create_or_update_history(
+                        pipeline_id=context.pipeline_id,
+                        document_id=context.uploaded_document.id,
+                        stage_name=stage.name,
+                        stage_status=status,
+                        start_time=stage_start_dt,
+                        end_time=stage_end_dt,
+                        duration=stage_elapsed,
+                        retry_count=context.retry_count,
+                        warnings_count=len(context.warnings) if stage.name == "Validation" else 0,
+                        errors_count=0
+                    )
+
                 if status == "SUCCESS":
                     successful_stages += 1
                 elif status == "SKIPPED":
                     skipped_stages += 1
                 else:
                     failed_stages += 1
-                    raise StageExecutionException(stage.name, f"Stage returned error state status: {status}")
+                    err_msgs = result.get("errors", [])
+                    raise StageExecutionException(stage.name, f"Stage returned error state status: {status}. Details: {err_msgs}")
 
                 self.after_stage_execution(stage, result, context)
 
@@ -106,10 +145,11 @@ class Pipeline:
                 self.on_stage_failure(stage, e, context)
                 context.update_state(PipelineState.FAILED)
                 
+                stage_end_dt = datetime.now()
                 stage_elapsed = round(time.perf_counter() - stage_start_time, 4)
                 context.timestamps["stages"][stage.name] = {
-                    "start": datetime.now(),
-                    "end": datetime.now(),
+                    "start": stage_start_dt,
+                    "end": stage_end_dt,
                     "duration": stage_elapsed,
                     "status": "FAILED"
                 }
@@ -117,6 +157,20 @@ class Pipeline:
                     "status": "FAILED",
                     "execution_time": stage_elapsed
                 }
+                if context.uploaded_document:
+                    proc_repo.create_or_update_history(
+                        pipeline_id=context.pipeline_id,
+                        document_id=context.uploaded_document.id,
+                        stage_name=stage.name,
+                        stage_status="FAILED",
+                        start_time=stage_start_dt,
+                        end_time=stage_end_dt,
+                        duration=stage_elapsed,
+                        retry_count=context.retry_count,
+                        warnings_count=0,
+                        errors_count=len(context.errors)
+                    )
+                    doc_repo.update_document_status(context.uploaded_document.id, "FAILED")
                 # Halt execution immediately on stage failure
                 break
 
@@ -126,6 +180,8 @@ class Pipeline:
 
         if context.state != PipelineState.FAILED:
             context.update_state(PipelineState.COMPLETED)
+            if context.uploaded_document:
+                doc_repo.update_document_status(context.uploaded_document.id, "COMPLETED")
 
         self.before_pipeline_complete(context)
 

@@ -6,7 +6,10 @@ from ..repositories.metadata_repository import MetadataRepository
 from ..repositories.audit_repository import AuditRepository
 from ..repositories.processing_repository import ProcessingRepository
 from ..repositories.transaction_manager import TransactionManager
+import logging
 from datetime import datetime
+
+logger = logging.getLogger('enterprise')
 
 class PersistenceStage(BaseStage):
     """
@@ -41,13 +44,13 @@ class PersistenceStage(BaseStage):
                 if ocr_metadata and "confidence" in ocr_metadata:
                     ocr_conf = ocr_metadata["confidence"].get("average")
 
-                # Copy repository_type from doc.metadata (uploaded at view layer) to context.metadata
-                repository_type = 'team'
-                if doc.metadata and isinstance(doc.metadata, dict) and "repository_type" in doc.metadata:
-                    repository_type = doc.metadata["repository_type"]
+                # Copy all upload metadata from doc.metadata to context.metadata
                 if not context.metadata:
                     context.metadata = {}
-                context.metadata["repository_type"] = repository_type
+                if doc.metadata and isinstance(doc.metadata, dict):
+                    for k, v in doc.metadata.items():
+                        if k not in context.metadata or not context.metadata[k]:
+                            context.metadata[k] = v
 
                 # 2. Persist Document data fields
                 self.doc_repo.save_standardized_data(
@@ -59,14 +62,14 @@ class PersistenceStage(BaseStage):
                     status="COMPLETED"
                 )
 
-                # 3. Create ProcessingHistory entries for each stage run
+                # 3. Create or update ProcessingHistory entries for each stage run
                 for s_name, t_info in context.timestamps["stages"].items():
                     s_status = t_info.get("status", "SUCCESS")
                     s_duration = t_info.get("duration", 0.0)
                     s_start = t_info.get("start", datetime.now())
                     s_end = t_info.get("end", datetime.now())
                     
-                    self.proc_repo.create_history(
+                    self.proc_repo.create_or_update_history(
                         pipeline_id=context.pipeline_id,
                         document_id=doc.id,
                         stage_name=s_name,
@@ -80,7 +83,7 @@ class PersistenceStage(BaseStage):
                     )
 
                 # Write Persistence stage history log manually
-                self.proc_repo.create_history(
+                self.proc_repo.create_or_update_history(
                     pipeline_id=context.pipeline_id,
                     document_id=doc.id,
                     stage_name=self.name,
@@ -142,6 +145,7 @@ class PersistenceStage(BaseStage):
                 "output": {"persisted": True}
             }
         except Exception as e:
+            logger.error(f"PersistenceStage execution failed for doc {doc.id if doc else 'Unknown'}: {str(e)}", exc_info=True)
             return {
                 "status": "FAILED",
                 "warnings": [],

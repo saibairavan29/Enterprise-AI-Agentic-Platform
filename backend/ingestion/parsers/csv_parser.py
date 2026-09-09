@@ -28,28 +28,46 @@ class CSVParser(BaseDocumentParser):
             raise ValueError(f"Could not decode CSV file using standard encodings: {encodings}")
 
         try:
-            # 2. Null Value handling - map NaNs to None for clean JSON Serialization
-            df_clean = df.astype(object).where(pd.notnull(df), None)
+            total_rows = len(df)
+            total_cols = len(df.columns)
+            headers = [str(col) for col in df.columns]
+
+            # 2. Null Value handling & Memory-Safe Preview Extraction
+            from common.constants import PREVIEW_MAX_RECORDS, PREVIEW_MAX_TEXT_BYTES
+            
+            # Slice sample preview for structured data representation to prevent memory overflow
+            df_preview = df.iloc[:PREVIEW_MAX_RECORDS]
+            df_clean = df_preview.astype(object).where(pd.notnull(df_preview), None)
             records = df_clean.to_dict(orient='records')
             
-            # Reconstruct plaintext representation
+            # Reconstruct plaintext representation (capped to PREVIEW_MAX_TEXT_BYTES)
             all_text_elements = []
+            text_size = 0
             for row in records:
                 row_values = [str(val) for val in row.values() if val is not None]
                 if row_values:
-                    all_text_elements.append(" | ".join(row_values))
+                    line_str = " | ".join(row_values)
+                    all_text_elements.append(line_str)
+                    text_size += len(line_str)
+                    if text_size > PREVIEW_MAX_TEXT_BYTES:
+                        all_text_elements.append("... [preview content truncated due to file size]")
+                        break
                     
             full_text = "\n".join(all_text_elements)
             
             return {
                 "content": full_text,
                 "structured_data": {
-                    "records": records
+                    "records": records,
+                    "preview_truncated": total_rows > PREVIEW_MAX_RECORDS,
+                    "total_records": total_rows
                 },
                 "metadata": {
                     "encoding": detected_encoding,
-                    "row_count": len(records),
-                    "column_count": len(df.columns)
+                    "row_count": total_rows,
+                    "column_count": total_cols,
+                    "headers": headers,
+                    "preview_row_count": len(records)
                 },
                 "parser_type": "CSV",
                 "processing_status": "PARSED"

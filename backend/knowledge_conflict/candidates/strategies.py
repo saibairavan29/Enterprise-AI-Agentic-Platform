@@ -331,9 +331,123 @@ class SimilarityWindowStrategy(BasePairingStrategy):
                             })
         return pairs
 
+
+class UniversalCrossCheckStrategy(BasePairingStrategy):
+    """
+    Generic, template-independent cross-check strategy.
+    Performs cross-file and cross-record property comparison across all ingested documents
+    and canonical database records without relying on rigid template schemas.
+    """
+    def generate_pairs(self, documents: list, records: list, segments: list) -> list:
+        pairs = []
+        records_db = {r.id: r for r in records}
+        record_segs = [s for s in segments if s["segment_id"].startswith("rec-") and s["segment_id"].endswith("-full")]
+        doc_segs = [s for s in segments if not s["segment_id"].startswith("rec-")]
+
+        # 1. Generic Cross-Check between Records across files & entities
+        for i in range(len(record_segs)):
+            for j in range(i + 1, len(record_segs)):
+                s1 = record_segs[i]
+                s2 = record_segs[j]
+                
+                rec1_id = s1["metadata"].get("record_id")
+                rec2_id = s2["metadata"].get("record_id")
+                if rec1_id == rec2_id:
+                    continue
+                    
+                rec1 = get_record_by_id(rec1_id, records_db)
+                rec2 = get_record_by_id(rec2_id, records_db)
+                
+                d1 = (rec1.canonical_data if rec1 else {}) or {}
+                d2 = (rec2.canonical_data if rec2 else {}) or {}
+                
+                common_keys = set(d1.keys()).intersection(set(d2.keys()))
+                
+                # Pair if records share any canonical keys or schema fields, or are from different files
+                should_pair = False
+                reason = "Cross-Record Property Check"
+                
+                if common_keys:
+                    should_pair = True
+                    reason = f"Common properties: {', '.join(list(common_keys)[:3])}"
+                elif str(s1["metadata"].get("document_id")) != str(s2["metadata"].get("document_id")):
+                    should_pair = True
+                    reason = "Cross-Document Record Check"
+                    
+                if should_pair:
+                    pairs.append({
+                        "source_document_id": s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None),
+                        "target_document_id": s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None),
+                        "source_segment_id": s1["segment_id"],
+                        "target_segment_id": s2["segment_id"],
+                        "source_text": s1["text"],
+                        "target_text": s2["text"],
+                        "source_page": None,
+                        "target_page": None,
+                        "source_section": s1.get("section", "Canonical Record"),
+                        "target_section": s2.get("section", "Canonical Record"),
+                        "strategy_used": "UniversalCrossCheckStrategy",
+                        "strategy_confidence": self.confidence,
+                        "entity_type": s1["metadata"].get("entity_type") or s2["metadata"].get("entity_type") or "Generic",
+                        "metadata": {
+                            "source_record_id": rec1_id,
+                            "target_record_id": rec2_id,
+                            "pairing_reason": reason,
+                            "common_properties": list(common_keys)
+                        }
+                    })
+
+        # 2. Generic Cross-Check between Documents across different files
+        import uuid
+        docs_by_id = {}
+        for seg in doc_segs:
+            doc_id = seg["metadata"].get("document_id")
+            if doc_id:
+                try:
+                    uuid.UUID(str(doc_id))
+                    docs_by_id.setdefault(str(doc_id), []).append(seg)
+                except ValueError:
+                    pass
+            
+        doc_ids = list(docs_by_id.keys())
+        for i in range(len(doc_ids)):
+            for j in range(i + 1, len(doc_ids)):
+                id1 = doc_ids[i]
+                id2 = doc_ids[j]
+                
+                segs1 = docs_by_id[id1][:3]
+                segs2 = docs_by_id[id2][:3]
+                
+                for s1 in segs1:
+                    for s2 in segs2:
+                        pairs.append({
+                            "source_document_id": id1,
+                            "target_document_id": id2,
+                            "source_segment_id": s1["segment_id"],
+                            "target_segment_id": s2["segment_id"],
+                            "source_text": s1["text"],
+                            "target_text": s2["text"],
+                            "source_page": s1.get("page"),
+                            "target_page": s2.get("page"),
+                            "source_section": s1.get("section"),
+                            "target_section": s2.get("section"),
+                            "strategy_used": "UniversalCrossCheckStrategy",
+                            "strategy_confidence": self.confidence,
+                            "entity_type": "DocumentCrossCheck",
+                            "metadata": {
+                                "source_document_id": id1,
+                                "target_document_id": id2,
+                                "pairing_reason": "Cross-File Document Comparison"
+                            }
+                        })
+
+        return pairs
+
 # Register concrete strategies inside StrategyRegistry dynamically
 StrategyRegistry.register("SameVersionStrategy", SameVersionStrategy)
 StrategyRegistry.register("SameEntityTypeStrategy", SameEntityTypeStrategy)
 StrategyRegistry.register("SameDepartmentStrategy", SameDepartmentStrategy)
 StrategyRegistry.register("SameTitleStrategy", SameTitleStrategy)
 StrategyRegistry.register("SimilarityWindowStrategy", SimilarityWindowStrategy)
+StrategyRegistry.register("UniversalCrossCheckStrategy", UniversalCrossCheckStrategy)
+

@@ -1,0 +1,16 @@
+EmpID,Employee_Name,Department,Position,Salary,DateofHire,DOB,Email,EmploymentStatus,ManagerName,PerformanceScore
+10001,"Smith, John",Production,Production Technician I,55000,2018-05-12,1990-04-15,john.smith@enterprise.com,Active,Michael Albert,Fully Meets
+10002,"Johnson, Emily",IT/IS,Software Engineer,,2020-01-10,1992-08-22,emily.johnson_invalid_email,Active,Simon Rutter,Exceeds
+10026,"Adinolfi, Wilson K",Executive,Vice President,195000,2011-07-05,1983-07-10,wilson.adinolfi@enterprise.com,Terminated,Board of Directors,Needs Improvement
+10004,"Brown, Robert",Production,Production Technician I,15000000,9999-99-99,1985-11-30,robert.brown@enterprise.com,Active,Michael Albert,Fully Meets
+10005,"Davis, Sarah",,Data Analyst,-45000,2021-03-15,1995-02-14,sarah.davis@enterprise.com,Active,Janet King,Fully Meets
+10005,"Davis, Sarah",Sales,Account Executive,78000,2021-03-15,1995-02-14,sarah.davis@enterprise.com,Active,Kendra Brignolo,Exceeds
+10007,,,,,,,,,,
+10008,"Miller, James",Finance,Financial Analyst,72000,2019-11-01,N/A,james.miller@enterprise.com,UNKNOWN_STATUS,Jennifer Fitzpatrick,Fully Meets
+10009,"Wilson, Patricia",Software,Lead Architect,135000,2015-06-20,1988-09-12,patricia.wilson@enterprise.com,Active,Alex Sweetwater,Exceeds
+10009,"Wilson, Patricia",HR,HR Specialist,48000,2015-06-20,1988-09-12,p.wilson@othercompany.com,Active,David Stanley,Needs Improvement
+10010,"Taylor, Michael",Sales,Senior Sales Manager,110000,2017-09-01,1987-03-25,michael.taylor@enterprise.com,Active,Kendra Brignolo,Exceeds
+10011,"Anderson, Linda",Production,Production Technician II,62000,2016-04-18,1989-12-05,linda.anderson@enterprise.com,Active,Elicia Jeter,Fully Meets
+10012,"Thomas, David",IT/IS,Database Administrator,98000,2019-08-20,1991-05-19,david.thomas@enterprise.com,Active,Simon Rutter,Fully Meets
+10013,"Jackson, Barbara",Admin,Office Manager,52000,2014-11-10,1982-10-08,barbara.jackson@enterprise.com,Active,Board of Directors,Fully Meets
+10014,"White, William",Production,Production Technician I,54000,2021-06-01,1996-01-30,william.white@enterprise.com,Active,Michael Albert,Needs Improvement

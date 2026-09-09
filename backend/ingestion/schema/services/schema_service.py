@@ -58,13 +58,26 @@ class EnterpriseSchemaMappingService:
                 raw_records = parsed_content
             elif isinstance(parsed_content, dict):
                 structured_data = parsed_content.get("structured_data", {})
-                if isinstance(structured_data, dict):
+                if isinstance(structured_data, list):
+                    raw_records = structured_data
+                elif isinstance(structured_data, dict):
                     if parsed_content.get("parser_type") == "EXCEL":
                         for sheet_name, sheet_records in structured_data.items():
                             if isinstance(sheet_records, list):
                                 raw_records.extend(sheet_records)
                     else:
-                        raw_records = structured_data.get("records", [])
+                        records = structured_data.get("records")
+                        data_val = structured_data.get("data")
+                        if isinstance(records, list):
+                            raw_records = records
+                        elif isinstance(data_val, list):
+                            raw_records = data_val
+                        elif isinstance(data_val, dict):
+                            raw_records = [data_val]
+                        elif isinstance(records, dict):
+                            raw_records = [records]
+                        else:
+                            raw_records = [structured_data]
                 
                 if not raw_records and "content" in parsed_content:
                     content_val = parsed_content.get("content")
@@ -100,50 +113,42 @@ class EnterpriseSchemaMappingService:
                     entity_type=entity_type,
                     canonical_fields=canon,
                     additional_fields=additional,
-                    metadata=enterprise_metadata
+                    metadata=meta
                 )
 
-                # Execute validators check
+                # Validate record
                 self.validator.validate(canon_record, meta)
+                
+                mapped_records.append(canon_record)
 
+                # Aggregate metrics
                 aggregated_metadata["total_raw_fields"] += meta.get("total_raw_fields", 0)
                 aggregated_metadata["mapped_count"] += meta.get("mapped_count", 0)
                 aggregated_metadata["unmapped_count"] += meta.get("unmapped_count", 0)
                 aggregated_metadata["duplicates"].extend(meta.get("duplicates", []))
                 aggregated_metadata["conflicts"].extend(meta.get("conflicts", []))
 
-                mapped_records.append(canon_record)
-
-            # Deduplicate metrics lists
-            seen_conflicts = set()
-            deduped_conflicts = []
-            for c in aggregated_metadata["conflicts"]:
-                ident = (c["canonical_field"], c["attempted_key"])
-                if ident not in seen_conflicts:
-                    seen_conflicts.add(ident)
-                    deduped_conflicts.append(c)
-            aggregated_metadata["conflicts"] = deduped_conflicts
-            aggregated_metadata["duplicates"] = list(set(aggregated_metadata["duplicates"]))
-
-            # 4. Wrap response wrapper
-            response = self.response_builder.build_response(mapped_records, aggregated_metadata)
-
-            elapsed = round(time.perf_counter() - start_time, 4)
-            stats = response["mapping_statistics"]
-            
-            logger.info(
-                f"CANONICAL_SCHEMA_MAPPED | Document ID: {doc_id} | "
-                f"Parser Type: {entity_type.upper()} | "
-                f"Records Mapped: {len(mapped_records)} | "
-                f"Accuracy: {stats['mapping_accuracy']}% | "
-                f"Time: {elapsed}s | "
-                f"Warnings: {len(stats['warnings'])}"
+            # 4. Compile final analytics wrapper
+            execution_time = round(time.perf_counter() - start_time, 4)
+            result = self.response_builder.build(
+                mapped_records=mapped_records,
+                metadata=aggregated_metadata,
+                execution_time=execution_time,
+                doc_id=doc_id,
+                entity_type=entity_type
             )
 
-            return response
+            logger.info(
+                f"CANONICAL_SCHEMA_MAPPED | Document ID: {doc_id} | Parser Type: {entity_type.upper()} | "
+                f"Records Mapped: {len(mapped_records)} | Accuracy: {result['analytics_summary']['mapping_accuracy_percent']}% | "
+                f"Time: {execution_time}s | Warnings: {len(result['analytics_summary']['warnings'])}"
+            )
+
+            return result
 
         except SchemaValidationException as sve:
+            logger.warning(f"Schema mapping validation failed: {str(sve)}")
             raise sve
         except Exception as e:
-            logger.error(f"Schema mapping execution failed: {str(e)}", exc_info=True)
-            raise SchemaMappingException(f"Failed resolving raw elements: {str(e)}")
+            logger.error(f"Failed mapping canonical schema: {str(e)}", exc_info=True)
+            raise SchemaMappingException(f"Schema mapping failed: {str(e)}")

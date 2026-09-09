@@ -86,11 +86,12 @@ class FeatureHistoryService:
 {feat_rows}
 """)
 
+        history_str = "\n---\n\n".join(md_rows) if md_rows else "No feature histories tracked yet."
         md_content = f"""# Historical Feature Importance Tracking Report
 
 This document records the evolution of feature importance weights across trained estimators.
 
-{"\n---\n\n".join(md_rows) if md_rows else "No feature histories tracked yet."}
+{history_str}
 """
         with open(md_path, 'w') as f:
             f.write(md_content)

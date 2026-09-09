@@ -4,8 +4,25 @@ from repository.models import (
     KnowledgeDocumentVersion,
     KnowledgeRecord,
     KnowledgeRelationship,
-    RepositoryAuditEntry
+    RepositoryAuditEntry,
+    RepositoryFolder
 )
+
+class RepositoryFolderSerializer(serializers.ModelSerializer):
+    owner_username = serializers.CharField(source='owner.username', read_only=True)
+    subfolder_count = serializers.SerializerMethodField()
+    document_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RepositoryFolder
+        fields = '__all__'
+
+    def get_subfolder_count(self, obj):
+        return obj.subfolders.filter(is_deleted=False).count()
+
+    def get_document_count(self, obj):
+        return obj.documents.exclude(repository_status='DELETED').count()
+
 
 class KnowledgeDocumentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -42,21 +59,23 @@ class RepositoryAuditEntrySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class SanitizedEmployeeRecordSerializer(serializers.ModelSerializer):
+class DynamicRecordSerializer(serializers.ModelSerializer):
     employee_details = serializers.SerializerMethodField()
 
     class Meta:
         model = KnowledgeRecord
-        fields = ('id', 'knowledge_document', 'employee_details', 'created_at')
+        fields = ('id', 'knowledge_document', 'entity_type', 'canonical_data', 'additional_fields', 'employee_details', 'created_at', 'updated_at')
 
     def get_employee_details(self, obj):
-        data = obj.canonical_data or {}
-        safe_keys = {
-            "employee_id", "name", "role", "department", 
-            "experience_years", "current_project", 
-            "work_location", "employment_status", 
-            "skills", "joining_date", "email"
-        }
-        # Strips out 'salary', bank_info, etc. at serialization layer
-        return {k: v for k, v in data.items() if k in safe_keys}
+        data = {}
+        if obj.canonical_data:
+            data.update(obj.canonical_data)
+        if obj.additional_fields:
+            data.update(obj.additional_fields)
+        return data
+
+
+# Backward-compatible alias
+SanitizedEmployeeRecordSerializer = DynamicRecordSerializer
+
 

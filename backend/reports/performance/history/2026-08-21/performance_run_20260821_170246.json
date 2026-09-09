@@ -1,0 +1,21 @@
+{
+    "timestamp": "2026-08-21T11:32:46.875394Z",
+    "metrics": {
+        "rf_accuracy": 0.942,
+        "rf_precision": 0.945,
+        "rf_recall": 0.94,
+        "rf_f1": 0.941,
+        "rf_roc_auc": 0.985,
+        "xgb_accuracy": 0.938,
+        "xgb_precision": 0.94,
+        "xgb_recall": 0.935,
+        "xgb_f1": 0.937,
+        "xgb_roc_auc": 0.981
+    },
+    "latencies": {
+        "prediction_time_ms": 0.6780954666467972,
+        "explanation_time_ms": 5.253019540206246,
+        "recommendation_time_ms": 5.0,
+        "total_time_ms": 10.931115006853044
+    }
+}

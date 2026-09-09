@@ -1,4 +1,5 @@
 from repository.repositories.record_repository import RecordRepository
+from common.json_utils import sanitize_json_obj
 
 class VersionDiffStage:
     """
@@ -27,7 +28,7 @@ class VersionDiffStage:
             old_records = [r.canonical_data for r in old_records_qs]
             
             # Run comparison engine
-            change_summary = self._calculate_diff(old_records, new_records)
+            change_summary = sanitize_json_obj(self._calculate_diff(old_records, new_records))
             
             # Update the snapshot created in Stage 3
             snapshot = context.get('version_snapshot')

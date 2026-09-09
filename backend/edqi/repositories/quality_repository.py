@@ -23,7 +23,7 @@ class QualityRepository:
         if not issues:
             return []
         with transaction.atomic():
-            QualityIssue.objects.bulk_create(issues)
+            QualityIssue.objects.bulk_create(issues, batch_size=500)
         return issues
 
     def get_report_by_id(self, report_pk: int) -> EnterpriseDataQualityReport:

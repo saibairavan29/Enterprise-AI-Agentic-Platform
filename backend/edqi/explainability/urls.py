@@ -7,11 +7,13 @@ from edqi.explainability.views import (
     RecommendationPredictionDetailView,
     ExplainabilityStatisticsView,
     ExplainabilityModelsView,
-    ExplainabilityCacheStatsView
+    ExplainabilityCacheStatsView,
+    AssessDatasetQualityView
 )
 
 urlpatterns = [
-    # Core XAI Endpoints
+    # Core XAI & Quality Assessment Endpoints
+    path('edqi/assess/', AssessDatasetQualityView.as_view(), name='assess-dataset-quality'),
     path('edqi/explain/', GenerateExplanationView.as_view(), name='explain-generate'),
     path('edqi/explanations/', ExplanationHistoryView.as_view(), name='explain-history'),
     path('edqi/explanations/<uuid:pk>/', ExplanationDetailView.as_view(), name='explain-detail'),

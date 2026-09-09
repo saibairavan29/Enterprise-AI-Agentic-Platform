@@ -29,13 +29,19 @@ class DocumentUploadService(BaseService):
         # 4. MIME Signature Check (Magic Bytes)
         validate_mime_type(file_obj, ext)
         
-        # 5. Generate SHA-256 Hash
+        # 5. Generate SHA-256 Hash incrementally (memory-safe chunking)
         sha256 = hashlib.sha256()
-        for chunk in file_obj.chunks():
+        for chunk in file_obj.chunks(chunk_size=128 * 1024):
             sha256.update(chunk)
         file_hash = sha256.hexdigest()
+        file_obj.seek(0)
         
-        # 6. Deduplication Check
+        # 6. Deduplication Check (purge prior FAILED records to allow clean re-upload)
+        failed_docs = Document.objects.filter(file_hash=file_hash, processing_status='FAILED')
+        if failed_docs.exists():
+            self.logger.info(f"Purging {failed_docs.count()} previously failed document record(s) with hash {file_hash} for re-upload.")
+            failed_docs.delete()
+
         if Document.objects.filter(file_hash=file_hash).exists():
             raise ValidationError("A document with the exact same content (SHA-256 hash) has already been uploaded.")
         

@@ -3,8 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import UniversalKnowledgeAssistant from './pages/UniversalKnowledgeAssistant';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 
 // Route guard component
 const ProtectedRoute = ({ children }) => {
@@ -52,6 +54,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/knowledge-assistant" 
+            element={
+              <ProtectedRoute>
+                <UniversalKnowledgeAssistant />
               </ProtectedRoute>
             } 
           />

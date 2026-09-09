@@ -27,15 +27,21 @@ class TextParser(BaseDocumentParser):
             raise ValueError(f"Could not decode text file using configured encodings: {encodings}")
 
         try:
-            # Basic cleanup
+            from common.constants import PREVIEW_MAX_TEXT_BYTES
             clean_text = raw_text.strip()
+            total_chars = len(clean_text)
+
+            content_preview = clean_text
+            if total_chars > PREVIEW_MAX_TEXT_BYTES:
+                content_preview = clean_text[:PREVIEW_MAX_TEXT_BYTES] + "\n... [text content preview truncated due to file size]"
             
             return {
-                "content": clean_text,
+                "content": content_preview,
                 "structured_data": {},
                 "metadata": {
                     "encoding": detected_encoding,
-                    "character_count": len(clean_text)
+                    "character_count": total_chars,
+                    "preview_truncated": total_chars > PREVIEW_MAX_TEXT_BYTES
                 },
                 "parser_type": "TEXT",
                 "processing_status": "PARSED"

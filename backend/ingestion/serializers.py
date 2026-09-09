@@ -31,9 +31,11 @@ class DocumentUploadSerializer(serializers.Serializer):
     """
     file = serializers.FileField(required=True, help_text="The binary document stream to upload.")
     repository_type = serializers.CharField(required=False, default='team')
+    folder_id = serializers.CharField(required=False, allow_blank=True, default='')
+    relative_path = serializers.CharField(required=False, allow_blank=True, default='')
+    target_logical_path = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate_file(self, value):
-        # Additional basic validation can go here if needed
         if not value:
             raise serializers.ValidationError("File is required.")
         return value

@@ -89,6 +89,8 @@ def main():
     # 2. Ingest Dataset 1: HR Dataset
     print("\n[2/8] Ingesting Dataset 1: HR Dataset...")
     hr_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Datasets", "HR", "Human_Resources_Data_Set", "HR Dataset rheubner.csv")
+    if not os.path.exists(hr_path):
+        hr_path = r"E:\project final year\Dataset Final\Datasets\HR\Human_Resources_Data_Set\HR Dataset rheubner.csv"
     with open(hr_path, 'rb') as f:
         hr_data = f.read()
     hr_file = SimpleUploadedFile("HR_Dataset.csv", hr_data, content_type='text/csv')
@@ -106,6 +108,8 @@ def main():
     # 3. Ingest Dataset 2: Procurement KPI Dataset
     print("\n[3/8] Ingesting Dataset 2: Procurement Dataset...")
     proc_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Datasets", "Procurement", "Procurement_KPI", "Procurement KPI Analysis Dataset.csv")
+    if not os.path.exists(proc_path):
+        proc_path = r"E:\project final year\Dataset Final\Datasets\Procurement\Procurement_KPI\Procurement KPI Analysis Dataset.csv"
     with open(proc_path, 'rb') as f:
         proc_data = f.read()
     proc_file = SimpleUploadedFile("Procurement_Dataset.csv", proc_data, content_type='text/csv')

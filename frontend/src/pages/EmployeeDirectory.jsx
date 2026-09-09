@@ -2,37 +2,68 @@ import React, { useState, useEffect } from 'react';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
+const formatLabel = (key) => {
+  if (!key) return '';
+  return key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\bId\b/gi, 'ID');
+};
+
+const DEFAULT_SCHEMA = [
+  { key: 'employee_id', label: 'Employee ID', type: 'text' },
+  { key: 'name', label: 'Name', type: 'text' },
+  { key: 'email', label: 'Work Email', type: 'text' },
+  { key: 'role', label: 'Role / Designation', type: 'text' },
+  { key: 'department', label: 'Department', type: 'category' },
+  { key: 'experience_years', label: 'Experience (Years)', type: 'number' },
+  { key: 'salary', label: 'Salary', type: 'number' },
+  { key: 'current_project', label: 'Current Project', type: 'text' },
+  { key: 'employment_status', label: 'Status', type: 'category' }
+];
+
 const EmployeeDirectory = () => {
   const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
+  const [schema, setSchema] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // Add Employee Form States
+  // Multi-Selection State
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  // Single Add Record Form States (Dynamic)
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newEmpId, setNewEmpId] = useState('');
-  const [newName, setNewName] = useState('');
-  const [newEmail, setNewEmail] = useState('');
-  const [newDept, setNewDept] = useState('');
-  const [newRole, setNewRole] = useState('');
-  const [newExp, setNewExp] = useState(0);
-  const [newProject, setNewProject] = useState('Bench');
-  const [newLocation, setNewLocation] = useState('Remote');
-  const [newStatus, setNewStatus] = useState('Active');
-  const [newSkills, setNewSkills] = useState('');
-  const [newSalary, setNewSalary] = useState(0);
-  const [newJoiningDate, setNewJoiningDate] = useState('');
-  
+  const [addFormData, setAddFormData] = useState({});
+
+  // Edit Record Form States (Dynamic)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEmp, setEditingEmp] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   
-  // Search and Filter States
+  // Stack Add (Bulk Import) Form States
+  const [showStackAddModal, setShowStackAddModal] = useState(false);
+  const [importSourceTab, setImportSourceTab] = useState('local'); // 'local' | 'team' | 'personal'
+  const [stackFile, setStackFile] = useState(null);
+  const [selectedRepoDoc, setSelectedRepoDoc] = useState(null);
+  const [repoDocs, setRepoDocs] = useState([]);
+  const [loadingRepoDocs, setLoadingRepoDocs] = useState(false);
+
+  const [stackPreviewRows, setStackPreviewRows] = useState([]);
+  const [stackPreviewHeaders, setStackPreviewHeaders] = useState([]);
+  const [stackUploading, setStackUploading] = useState(false);
+  const [stackError, setStackError] = useState('');
+  const [stackSuccessMsg, setStackSuccessMsg] = useState('');
+  const [stackStats, setStackStats] = useState(null);
+
+  // Search and Filter States (Dynamic)
   const [searchQuery, setSearchQuery] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [sortField, setSortField] = useState('name');
+  const [categoryFilters, setCategoryFilters] = useState({});
+  const [sortField, setSortField] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
   
   // Selection and Profile details drawer
@@ -42,77 +73,285 @@ const EmployeeDirectory = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
+  const deriveSchemaFromRecords = (records) => {
+    if (!records || records.length === 0) return;
+    const keySet = new Set();
+    records.forEach(r => {
+      const data = r.canonical_data || r.employee_details || r;
+      Object.keys(data).forEach(k => {
+        if (!['id', 'knowledge_document', 'created_at', 'updated_at', 'employee_details', 'canonical_data'].includes(k)) {
+          keySet.add(k);
+        }
+      });
+    });
+
+    if (keySet.size === 0) return;
+
+    const cols = Array.from(keySet).map(key => {
+      let type = 'text';
+      const sampleVal = records.find(r => {
+        const d = r.canonical_data || r.employee_details || r;
+        return d[key] !== undefined && d[key] !== null;
+      })?.canonical_data?.[key];
+
+      const kLower = key.toLowerCase();
+      if (typeof sampleVal === 'number' || kLower.includes('salary') || kLower.includes('exp') || kLower.includes('years') || kLower.includes('count') || kLower.includes('age') || kLower.includes('pay')) {
+        type = 'number';
+      } else if (kLower.includes('date')) {
+        type = 'date';
+      }
+
+      return {
+        key,
+        label: formatLabel(key),
+        type
+      };
+    });
+
+    setSchema(cols);
+  };
+
   const fetchEmployees = async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      // Query the API endpoint we created
       const res = await client.get('repository/employees/');
-      const data = res.data.results || res.data.data || [];
+      const data = Array.isArray(res.data) ? res.data : (res.data.results || res.data.data || []);
       setEmployees(data);
+
+      try {
+        const schemaRes = await client.get('repository/employees/schema/');
+        if (schemaRes.data && Array.isArray(schemaRes.data.columns) && schemaRes.data.columns.length > 0) {
+          setSchema(schemaRes.data.columns);
+        } else {
+          deriveSchemaFromRecords(data);
+        }
+      } catch (sErr) {
+        deriveSchemaFromRecords(data);
+      }
     } catch (err) {
       console.error(err);
-      setErrorMsg('Failed to load employee directory records.');
+      setErrorMsg('Failed to load record directory.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAddEmployee = async (e) => {
+  const activeSchema = schema.length > 0 ? schema : DEFAULT_SCHEMA;
+
+  const fetchRepoDocuments = async (sourceType) => {
+    setLoadingRepoDocs(true);
+    setRepoDocs([]);
+    setSelectedRepoDoc(null);
+    try {
+      const res = await client.get('repository/documents/');
+      const docs = Array.isArray(res.data) ? res.data : (res.data.results || res.data.data || []);
+      
+      const validDocs = docs.filter(doc => {
+        const title = (doc.title || doc.source_document?.original_name || doc.metadata?.file?.original_name || '').toLowerCase();
+        const isDataset = title.endsWith('.csv') || title.endsWith('.xlsx') || title.endsWith('.xls') || (doc.record_count && doc.record_count > 0);
+        if (sourceType === 'personal') {
+          const isOwner = doc.owner === user?.username || doc.owner?.username === user?.username || doc.repository_type === 'personal';
+          return isDataset && isOwner;
+        } else {
+          return isDataset;
+        }
+      });
+      setRepoDocs(validDocs);
+    } catch (err) {
+      console.error("Failed to load repository documents:", err);
+    } finally {
+      setLoadingRepoDocs(false);
+    }
+  };
+
+  const handleTabChange = (tabName) => {
+    setImportSourceTab(tabName);
+    setStackError('');
+    setStackSuccessMsg('');
+    setStackFile(null);
+    setSelectedRepoDoc(null);
+    setStackPreviewRows([]);
+    setStackPreviewHeaders([]);
+
+    if (tabName === 'team' || tabName === 'personal') {
+      fetchRepoDocuments(tabName);
+    }
+  };
+
+  const handleSelectRepoDocument = (doc) => {
+    setSelectedRepoDoc(doc);
+    setStackError('');
+    setStackSuccessMsg('');
+
+    client.get(`repository/documents/${doc.id}/records/`)
+      .then(res => {
+        const records = Array.isArray(res.data) ? res.data : (res.data.results || res.data.data || []);
+        if (records.length > 0) {
+          const rows = records.slice(0, 8).map(r => r.canonical_data || {});
+          const headers = Array.from(new Set(rows.flatMap(r => Object.keys(r))));
+          setStackPreviewHeaders(headers);
+          setStackPreviewRows(rows);
+        } else {
+          setStackPreviewHeaders([]);
+          setStackPreviewRows([]);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to preview repository document records", err);
+      });
+  };
+
+  const handleOpenAddModal = () => {
+    const initData = {};
+    activeSchema.forEach(col => {
+      initData[col.key] = col.type === 'number' ? 0 : '';
+    });
+    setAddFormData(initData);
+    setFormError('');
+    setFormSuccess('');
+    setShowAddModal(true);
+  };
+
+  const handleAddRecord = async (e) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
     
-    if (!newEmpId || !newName || !newEmail || !newDept || !newRole) {
-      setFormError('Please fill out all required fields (Employee ID, Name, Email, Department, Role).');
-      return;
-    }
-    
     setSubmitting(true);
     try {
-      const res = await client.post('repository/employees/', {
-        employee_id: newEmpId,
-        name: newName,
-        email: newEmail,
-        department: newDept,
-        role: newRole,
-        experience_years: parseInt(newExp) || 0,
-        current_project: newProject,
-        work_location: newLocation,
-        employment_status: newStatus,
-        skills: newSkills,
-        salary: parseFloat(newSalary) || 0.0,
-        joining_date: newJoiningDate || new Date().toISOString().split('T')[0]
-      });
+      const res = await client.post('repository/employees/', addFormData);
       
       if (res.data.success) {
-        setFormSuccess('Employee added successfully!');
+        setFormSuccess('Record added successfully!');
         fetchEmployees();
-        setNewEmpId('');
-        setNewName('');
-        setNewEmail('');
-        setNewDept('');
-        setNewRole('');
-        setNewExp(0);
-        setNewProject('Bench');
-        setNewLocation('Remote');
-        setNewStatus('Active');
-        setNewSkills('');
-        setNewSalary(0);
-        setNewJoiningDate('');
         
         setTimeout(() => {
           setShowAddModal(false);
           setFormSuccess('');
         }, 1500);
       } else {
-        setFormError(res.data.message || 'Failed to add employee.');
+        setFormError(res.data.message || 'Failed to add record.');
       }
     } catch (err) {
       console.error(err);
-      setFormError(err.response?.data?.message || 'Error occurred while saving employee record.');
+      setFormError(err.response?.data?.message || 'Error occurred while saving record.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStackFileChange = (e) => {
+    const file = e.target.files[0];
+    setStackFile(file || null);
+    setStackError('');
+    setStackSuccessMsg('');
+    setStackStats(null);
+    setStackPreviewRows([]);
+    setStackPreviewHeaders([]);
+
+    if (file) {
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.csv')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const text = event.target.result;
+          const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
+          if (lines.length > 0) {
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const rows = lines.slice(1, 10).map(line => {
+              const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+              const rowObj = {};
+              headers.forEach((h, idx) => {
+                rowObj[h] = vals[idx] || '';
+              });
+              return rowObj;
+            });
+            setStackPreviewHeaders(headers);
+            setStackPreviewRows(rows);
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
+  };
+
+  const downloadSampleTemplate = () => {
+    const headers = activeSchema.map(s => s.key).join(',');
+    const sampleRow = activeSchema.map(s => {
+      if (s.key.includes('id')) return 'REC1001';
+      if (s.key.includes('name')) return 'John Doe';
+      if (s.key.includes('email')) return 'john.doe@enterprise.com';
+      if (s.key.includes('salary')) return '85000';
+      if (s.type === 'number') return '5';
+      if (s.type === 'date') return '2024-01-15';
+      return 'Sample Value';
+    }).join(',');
+
+    const csvContent = `${headers}\n${sampleRow}`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "record_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleStackAddSubmit = async (e) => {
+    e.preventDefault();
+    if (importSourceTab === 'local' && !stackFile) {
+      setStackError('Please select a file to import.');
+      return;
+    }
+    if ((importSourceTab === 'team' || importSourceTab === 'personal') && !selectedRepoDoc) {
+      setStackError(`Please select a document from the ${importSourceTab === 'team' ? 'Team' : 'Personal'} Repository.`);
+      return;
+    }
+
+    setStackUploading(true);
+    setStackError('');
+    setStackSuccessMsg('');
+    setStackStats(null);
+
+    try {
+      let res;
+      if (importSourceTab === 'local') {
+        const formData = new FormData();
+        formData.append('file', stackFile);
+        res = await client.post('repository/employees/bulk_import/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        res = await client.post('repository/employees/bulk_import/', {
+          document_id: selectedRepoDoc.id
+        });
+      }
+
+      if (res.data.success) {
+        const stats = res.data.data;
+        setStackStats(stats);
+        setStackSuccessMsg(res.data.message || `Stack Add completed successfully!`);
+        fetchEmployees();
+        setStackFile(null);
+        setSelectedRepoDoc(null);
+        setStackPreviewRows([]);
+        setStackPreviewHeaders([]);
+
+        setTimeout(() => {
+          setShowStackAddModal(false);
+          setStackSuccessMsg('');
+          setStackStats(null);
+        }, 2500);
+      } else {
+        setStackError(res.data.message || 'Failed to import record file.');
+      }
+    } catch (err) {
+      console.error(err);
+      setStackError(err.response?.data?.message || err.response?.data?.errors?.[0] || 'Error importing record dataset.');
+    } finally {
+      setStackUploading(false);
     }
   };
 
@@ -120,49 +359,55 @@ const EmployeeDirectory = () => {
     fetchEmployees();
   }, []);
 
-  // Utility to extract safe detail values
   const getEmpDataVal = (emp, fieldName) => {
-    return emp.employee_details?.[fieldName] || 'N/A';
+    if (!emp) return 'N/A';
+    const details = emp.canonical_data || emp.employee_details || emp;
+    const val = details[fieldName] !== undefined ? details[fieldName] : emp[fieldName];
+    return (val !== undefined && val !== null && val !== '') ? val : 'N/A';
   };
 
-  // Client-side filtering & sorting
-  const filteredEmployees = employees.filter(emp => {
-    const details = emp.employee_details || {};
-    const name = (details.name || '').toLowerCase();
-    const role = (details.role || '').toLowerCase();
-    const dept = (details.department || '').toLowerCase();
-    const project = (details.current_project || '').toLowerCase();
-    const skills = (details.skills || '').toLowerCase();
-    const status = (details.employment_status || '').toLowerCase();
-    const empId = (details.employee_id || '').toLowerCase();
+  const safeEmployees = Array.isArray(employees) ? employees : [];
 
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch = 
-      name.includes(searchLower) ||
-      role.includes(searchLower) ||
-      dept.includes(searchLower) ||
-      project.includes(searchLower) ||
-      skills.includes(searchLower) ||
-      empId.includes(searchLower);
-
-    const matchesDept = !deptFilter || dept === deptFilter.toLowerCase();
-    const matchesRole = !roleFilter || role === roleFilter.toLowerCase();
-    const matchesStatus = !statusFilter || status === statusFilter.toLowerCase();
-
-    return matchesSearch && matchesDept && matchesRole && matchesStatus;
+  // Auto-discover category columns for filter bar (unique values <= 25)
+  const filterableCols = activeSchema.filter(col => {
+    const uniqueVals = new Set(safeEmployees.map(e => getEmpDataVal(e, col.key)).filter(v => v && v !== 'N/A'));
+    return uniqueVals.size > 0 && uniqueVals.size <= 25;
   });
 
-  // Unique lists for dropdown filters
-  const departments = Array.from(new Set(employees.map(e => getEmpDataVal(e, 'department')).filter(d => d !== 'N/A')));
-  const roles = Array.from(new Set(employees.map(e => getEmpDataVal(e, 'role')).filter(r => r !== 'N/A')));
-  const statuses = Array.from(new Set(employees.map(e => getEmpDataVal(e, 'employment_status')).filter(s => s !== 'N/A')));
+  const filteredEmployees = safeEmployees.filter(emp => {
+    if (!emp) return false;
+    const details = emp.canonical_data || emp.employee_details || emp;
 
-  // Sorting
+    if (searchQuery.trim()) {
+      const searchLower = searchQuery.toLowerCase();
+      const match = Object.values(details).some(val => 
+        val !== null && val !== undefined && String(val).toLowerCase().includes(searchLower)
+      );
+      if (!match) return false;
+    }
+
+    for (const [fKey, fVal] of Object.entries(categoryFilters)) {
+      if (fVal) {
+        const cellVal = String(getEmpDataVal(emp, fKey)).toLowerCase();
+        if (cellVal !== fVal.toLowerCase()) return false;
+      }
+    }
+
+    return true;
+  });
+
   const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+    if (!sortField) return 0;
     let valA = getEmpDataVal(a, sortField);
     let valB = getEmpDataVal(b, sortField);
+
+    const numA = parseFloat(valA);
+    const numB = parseFloat(valB);
+
+    if (!isNaN(numA) && !isNaN(numB)) {
+      return sortOrder === 'asc' ? numA - numB : numB - numA;
+    }
     
-    // Sort logic
     if (typeof valA === 'string') valA = valA.toLowerCase();
     if (typeof valB === 'string') valB = valB.toLowerCase();
     
@@ -171,11 +416,30 @@ const EmployeeDirectory = () => {
     return 0;
   });
 
-  // Pagination bounds
+  const totalPages = Math.max(1, Math.ceil(sortedEmployees.length / itemsPerPage));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [sortedEmployees.length, totalPages]);
+
+  const getVisiblePageNumbers = (current, total) => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+    if (current >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, '...', current - 1, current, current + 1, '...', total];
+  };
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = sortedEmployees.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(sortedEmployees.length / itemsPerPage);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -186,333 +450,461 @@ const EmployeeDirectory = () => {
     }
   };
 
+  // --- SELECTION HANDLERS ---
+  const handleToggleSelect = (id, e) => {
+    if (e) e.stopPropagation();
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const isAllCurrentSelected = currentItems.length > 0 && currentItems.every(emp => selectedIds.includes(emp.id));
+
+  const handleToggleSelectAll = () => {
+    const currentItemIds = currentItems.map(e => e.id);
+    if (isAllCurrentSelected) {
+      setSelectedIds(prev => prev.filter(id => !currentItemIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...currentItemIds])));
+    }
+  };
+
+  // --- SINGLE & STACK REMOVE HANDLERS ---
+  const handleSingleRemove = async (empId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm("Are you sure you want to remove this record?")) return;
+    try {
+      await client.delete(`repository/employees/${empId}/`);
+      if (selectedEmp?.id === empId) setSelectedEmp(null);
+      setSelectedIds(prev => prev.filter(id => id !== empId));
+      fetchEmployees();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to remove record.");
+    }
+  };
+
+  const handleStackRemove = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to Stack Remove ${selectedIds.length} selected records?`)) return;
+    try {
+      await client.post('repository/employees/bulk_delete/', { record_ids: selectedIds });
+      setSelectedIds([]);
+      setSelectedEmp(null);
+      fetchEmployees();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to execute Stack Remove.");
+    }
+  };
+
+  const handlePurgeAll = async () => {
+    if (!window.confirm("WARNING: Are you sure you want to remove ALL records from the directory? This action cannot be undone.")) return;
+    try {
+      await client.post('repository/employees/purge_all/');
+      setSelectedIds([]);
+      setSelectedEmp(null);
+      fetchEmployees();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to purge directory.");
+    }
+  };
+
+  // --- EDIT DETAILS HANDLERS ---
+  const openEditModal = (emp, e) => {
+    if (e) e.stopPropagation();
+    setEditingEmp(emp);
+    const details = emp.canonical_data || emp.employee_details || emp;
+    const initialForm = {};
+    activeSchema.forEach(col => {
+      initialForm[col.key] = details[col.key] !== undefined ? details[col.key] : '';
+    });
+    setEditFormData(initialForm);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    if (!editingEmp) return;
+    setSubmitting(true);
+    try {
+      const res = await client.put(`repository/employees/${editingEmp.id}/`, editFormData);
+      if (res.data.success) {
+        fetchEmployees();
+        setShowEditModal(false);
+        setEditingEmp(null);
+        if (selectedEmp?.id === editingEmp.id) {
+          setSelectedEmp(res.data.data);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update record details.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderCellContent = (emp, col) => {
+    const val = getEmpDataVal(emp, col.key);
+    if (val === 'N/A') return <span className="text-muted">N/A</span>;
+
+    const kLower = col.key.toLowerCase();
+    if (kLower.includes('salary') || kLower.includes('pay') || kLower.includes('compensation')) {
+      const numVal = parseFloat(val);
+      const formatted = !isNaN(numVal) ? `$${numVal.toLocaleString('en-US')}` : `$${val}`;
+      return <span className="fw-semibold text-success font-monospace">{formatted}</span>;
+    }
+
+    if (kLower.includes('status')) {
+      const isActive = String(val).toLowerCase() === 'active';
+      return (
+        <span className={`badge ${isActive ? 'bg-success-subtle text-success border-success' : 'bg-secondary-subtle text-secondary border-secondary'} border rounded-pill px-2 py-1`}>
+          {String(val)}
+        </span>
+      );
+    }
+
+    if (col.type === 'number' || typeof val === 'number') {
+      return <span className="font-monospace">{val}</span>;
+    }
+
+    if (kLower.includes('email')) {
+      return <span className="text-secondary small font-monospace">{val}</span>;
+    }
+
+    if (kLower.includes('id')) {
+      return <span className="font-monospace fw-semibold">{val}</span>;
+    }
+
+    return <span className="text-dark">{String(val)}</span>;
+  };
+
   return (
-    <div className="row g-4 position-relative">
-      <div className={selectedEmp ? "col-12 col-lg-8" : "col-12"}>
-        <div className="bg-white rounded-3 shadow-sm border p-4">
-          
-          {/* Filters Area */}
-          <div className="row g-3 mb-4 align-items-end">
-            <div className="col-12 col-md-4">
-              <label className="form-label small text-secondary fw-semibold">Search Directory</label>
-              <input 
-                type="text" 
-                className="form-control"
-                placeholder="Search name, role, skills, project..."
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              />
-            </div>
-            
-            <div className="col-6 col-md-2">
-              <label className="form-label small text-secondary fw-semibold">Department</label>
-              <select 
-                className="form-select text-capitalize"
-                value={deptFilter}
-                onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">All Departments</option>
-                {departments.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            
-            <div className="col-6 col-md-2">
-              <label className="form-label small text-secondary fw-semibold">Role</label>
-              <select 
-                className="form-select text-capitalize"
-                value={roleFilter}
-                onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">All Roles</option>
-                {roles.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-
-            <div className="col-6 col-md-2">
-              <label className="form-label small text-secondary fw-semibold">Status</label>
-              <select 
-                className="form-select text-capitalize"
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">All Statuses</option>
-                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            <div className="col-6 col-md-2 d-flex gap-2">
-              <button className="btn btn-outline-secondary w-100" onClick={fetchEmployees} disabled={loading}>
-                Refresh
-              </button>
-              {user?.role === 'admin' && (
-                <button className="btn btn-premium-primary text-white w-100" onClick={() => setShowAddModal(true)}>
-                  Add
-                </button>
-              )}
-            </div>
-          </div>
-
-          {errorMsg && <div className="alert alert-danger py-2">{errorMsg}</div>}
-
-          {/* Table list */}
-          <div className="table-responsive rounded border mb-3">
-            <table className="table table-hover align-middle mb-0">
-              <thead className="table-light">
-                <tr className="small text-secondary">
-                  <th className="cursor-pointer" onClick={() => handleSort('employee_id')}>
-                    Employee ID {sortField === 'employee_id' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="cursor-pointer" onClick={() => handleSort('name')}>
-                    Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="cursor-pointer" onClick={() => handleSort('role')}>
-                    Role {sortField === 'role' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="cursor-pointer" onClick={() => handleSort('experience_years')}>
-                    Experience {sortField === 'experience_years' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="cursor-pointer" onClick={() => handleSort('department')}>
-                    Department {sortField === 'department' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th>Current Project</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" className="text-center py-5">
-                      <span className="spinner-border spinner-border-sm me-2 text-primary" role="status"></span>
-                      Loading directory records...
-                    </td>
-                  </tr>
-                ) : currentItems.length > 0 ? (
-                  currentItems.map(emp => {
-                    const active = getEmpDataVal(emp, 'employment_status').toLowerCase() === 'active';
-                    return (
-                      <tr 
-                        key={emp.id} 
-                        className={`cursor-pointer ${selectedEmp?.id === emp.id ? 'table-primary-subtle' : ''}`}
-                        onClick={() => setSelectedEmp(selectedEmp?.id === emp.id ? null : emp)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <td className="font-monospace fw-semibold">{getEmpDataVal(emp, 'employee_id')}</td>
-                        <td>
-                          <div className="fw-semibold text-dark">{getEmpDataVal(emp, 'name')}</div>
-                          <div className="text-secondary small font-monospace" style={{ fontSize: '0.75rem' }}>{getEmpDataVal(emp, 'email')}</div>
-                        </td>
-                        <td className="text-capitalize">{getEmpDataVal(emp, 'role')}</td>
-                        <td>{getEmpDataVal(emp, 'experience_years')} Years</td>
-                        <td className="text-capitalize">{getEmpDataVal(emp, 'department')}</td>
-                        <td>{getEmpDataVal(emp, 'current_project')}</td>
-                        <td>
-                          <span className={`badge ${active ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'} border border-${active ? 'success' : 'secondary'} rounded-pill px-2 py-1`}>
-                            {getEmpDataVal(emp, 'employment_status')}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="text-center py-5 text-muted">
-                      No matching employee records found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="d-flex justify-content-between align-items-center pt-2">
-              <span className="small text-secondary">
-                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, sortedEmployees.length)} of {sortedEmployees.length} employees
-              </span>
-              <nav>
-                <ul className="pagination pagination-sm mb-0">
-                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                    <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>Previous</button>
-                  </li>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <li key={page} className={`page-item ${currentPage === page ? 'active' : ''}`}>
-                      <button className="page-link" onClick={() => setCurrentPage(page)}>{page}</button>
-                    </li>
-                  ))}
-                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                    <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>Next</button>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          )}
-
+    <div className="container-fluid py-4 px-4">
+      {/* Top Banner Header */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 className="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+            <span>📊</span> Record Directory
+          </h2>
+          <p className="text-secondary mb-0">Universal Schema-Driven Record Directory with dynamic columns, forms, filters, and side panel.</p>
         </div>
       </div>
 
-      {/* Details Side Panel Drawer */}
-      {selectedEmp && (
-        <div className="col-12 col-lg-4">
-          <div className="bg-white rounded-3 shadow-sm border p-4 sticky-top" style={{ top: '24px' }}>
-            <div className="d-flex justify-content-between align-items-start mb-3 pb-2 border-bottom">
-              <div>
-                <span className="badge bg-primary-subtle text-primary font-monospace mb-1">{getEmpDataVal(selectedEmp, 'employee_id')}</span>
-                <h4 className="fw-bold mb-0 text-dark">{getEmpDataVal(selectedEmp, 'name')}</h4>
-                <p className="text-secondary small mb-0">{getEmpDataVal(selectedEmp, 'role')}</p>
+      <div className="row g-4 position-relative">
+        <div className={selectedEmp ? "col-12 col-lg-8" : "col-12"}>
+          <div className="bg-white rounded-3 shadow-sm border p-4">
+            
+            {/* Filters & Actions Bar */}
+            <div className="row g-3 mb-4 align-items-end">
+              <div className="col-12 col-md-3">
+                <label className="form-label small text-secondary fw-semibold">Search Directory</label>
+                <input 
+                  type="text" 
+                  className="form-control"
+                  placeholder="Search any record field..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                />
               </div>
-              <button className="btn-close" onClick={() => setSelectedEmp(null)}></button>
+              
+              {filterableCols.slice(0, 3).map(col => {
+                const options = Array.from(new Set(safeEmployees.map(e => getEmpDataVal(e, col.key)).filter(v => v && v !== 'N/A')));
+                return (
+                  <div key={col.key} className="col-6 col-md-2">
+                    <label className="form-label small text-secondary fw-semibold">{col.label}</label>
+                    <select 
+                      className="form-select text-capitalize"
+                      value={categoryFilters[col.key] || ''}
+                      onChange={(e) => {
+                        setCategoryFilters({ ...categoryFilters, [col.key]: e.target.value });
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value="">All {col.label}s</option>
+                      {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
+                );
+              })}
+
+              <div className="col-12 col-md-3 d-flex gap-2 justify-content-end flex-wrap ms-auto">
+                <button className="btn btn-outline-secondary px-3" onClick={fetchEmployees} disabled={loading} title="Refresh Directory">
+                  Refresh
+                </button>
+                {user?.role === 'admin' && (
+                  <>
+                    <button className="btn btn-outline-primary fw-bold px-3 text-nowrap d-flex align-items-center gap-1" onClick={() => setShowStackAddModal(true)} title="Bulk import records from Local File, Team Repo, or Personal Repo">
+                      <span>📥</span> Stack Add
+                    </button>
+                    <button className="btn btn-premium-primary text-white fw-semibold px-3 text-nowrap" onClick={handleOpenAddModal}>
+                      + Add
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="d-flex flex-column gap-3">
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Department</span>
-                <span className="text-dark text-capitalize">{getEmpDataVal(selectedEmp, 'department')}</span>
-              </div>
-
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Work Location</span>
-                <span className="text-dark">{getEmpDataVal(selectedEmp, 'work_location')}</span>
-              </div>
-
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Current Project</span>
-                <span className="text-dark">{getEmpDataVal(selectedEmp, 'current_project')}</span>
-              </div>
-
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Experience</span>
-                <span className="text-dark">{getEmpDataVal(selectedEmp, 'experience_years')} Years</span>
-              </div>
-
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Employment Status</span>
-                <span className="text-dark">{getEmpDataVal(selectedEmp, 'employment_status')}</span>
-              </div>
-
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Skills & Expertise</span>
-                <div className="d-flex flex-wrap gap-1 mt-1">
-                  {(getEmpDataVal(selectedEmp, 'skills') !== 'N/A' ? getEmpDataVal(selectedEmp, 'skills').split(',') : []).map(skill => (
-                    <span key={skill} className="badge bg-light text-dark border small rounded-pill px-2 py-1">
-                      {skill.trim()}
-                    </span>
-                  )) || <span className="text-muted">None specified</span>}
+            {/* Selection Toolbar Bar */}
+            {selectedIds.length > 0 && (
+              <div className="alert alert-primary py-2 px-3 mb-3 d-flex justify-content-between align-items-center rounded border-primary">
+                <div className="fw-semibold">
+                  <span>✅ {selectedIds.length} record{selectedIds.length > 1 ? 's' : ''} selected</span>
+                </div>
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-secondary bg-white" onClick={() => setSelectedIds([])}>
+                    Deselect All
+                  </button>
+                  {user?.role === 'admin' && (
+                    <button className="btn btn-sm btn-danger fw-bold text-white d-flex align-items-center gap-1" onClick={handleStackRemove}>
+                      <span>🗑️</span> Stack Remove ({selectedIds.length})
+                    </button>
+                  )}
                 </div>
               </div>
+            )}
 
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Joining Date</span>
-                <span className="text-dark">{getEmpDataVal(selectedEmp, 'joining_date')}</span>
+            {safeEmployees.length > 0 && selectedIds.length === 0 && user?.role === 'admin' && (
+              <div className="d-flex justify-content-end mb-2">
+                <button className="btn btn-sm btn-outline-danger" onClick={handlePurgeAll} title="Clear all records from directory">
+                  🗑️ Remove All Records ({safeEmployees.length})
+                </button>
+              </div>
+            )}
+
+            {errorMsg && <div className="alert alert-danger py-2">{errorMsg}</div>}
+
+            {/* Table list */}
+            <div className="table-responsive rounded border mb-3">
+              <table className="table table-hover align-middle mb-0">
+                <thead className="table-light">
+                  <tr className="small text-secondary">
+                    <th style={{ width: '40px' }} className="text-center">
+                      <input 
+                        type="checkbox" 
+                        className="form-check-input"
+                        checked={isAllCurrentSelected}
+                        onChange={handleToggleSelectAll}
+                        title="Select All on Current Page"
+                      />
+                    </th>
+                    {activeSchema.map(col => (
+                      <th key={col.key} className="cursor-pointer text-nowrap" onClick={() => handleSort(col.key)}>
+                        {col.label} {sortField === col.key && (sortOrder === 'asc' ? '↑' : '↓')}
+                      </th>
+                    ))}
+                    <th className="text-end pe-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={activeSchema.length + 2} className="text-center py-5">
+                        <span className="spinner-border spinner-border-sm me-2 text-primary" role="status"></span>
+                        Loading directory records...
+                      </td>
+                    </tr>
+                  ) : currentItems.length > 0 ? (
+                    currentItems.map(emp => {
+                      const isSelected = selectedIds.includes(emp.id);
+                      return (
+                        <tr 
+                          key={emp.id} 
+                          className={`cursor-pointer ${isSelected ? 'table-warning-subtle' : (selectedEmp?.id === emp.id ? 'table-primary-subtle' : '')}`}
+                          onClick={() => setSelectedEmp(selectedEmp?.id === emp.id ? null : emp)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              className="form-check-input"
+                              checked={isSelected}
+                              onChange={(e) => handleToggleSelect(emp.id, e)}
+                            />
+                          </td>
+                          {activeSchema.map(col => (
+                            <td key={col.key}>
+                              {renderCellContent(emp, col)}
+                            </td>
+                          ))}
+                          <td className="text-end pe-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="d-flex justify-content-end gap-1">
+                              <button 
+                                className="btn btn-sm btn-outline-primary py-0 px-2"
+                                onClick={(e) => openEditModal(emp, e)}
+                                title="Edit Record Details"
+                              >
+                                ✏️
+                              </button>
+                              <button 
+                                className="btn btn-sm btn-outline-danger py-0 px-2"
+                                onClick={(e) => handleSingleRemove(emp.id, e)}
+                                title="Remove Record"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={activeSchema.length + 2} className="text-center py-5 text-muted">
+                        No matching records found. Click <strong>Stack Add</strong> or <strong>+ Add</strong> to import dataset records.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="d-flex justify-content-between align-items-center pt-2">
+                <span className="small text-secondary">
+                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, sortedEmployees.length)} of {sortedEmployees.length} records
+                </span>
+                <nav>
+                  <ul className="pagination pagination-sm mb-0">
+                    <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setCurrentPage(currentPage - 1)}>Previous</button>
+                    </li>
+                    {getVisiblePageNumbers(currentPage, totalPages).map((page, idx) => (
+                      <li key={idx} className={`page-item ${page === currentPage ? 'active' : ''} ${page === '...' ? 'disabled' : ''}`}>
+                        {page === '...' ? (
+                          <span className="page-link">...</span>
+                        ) : (
+                          <button className="page-link" onClick={() => setCurrentPage(page)}>{page}</button>
+                        )}
+                      </li>
+                    ))}
+                    <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setCurrentPage(currentPage + 1)}>Next</button>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Details Side Panel Drawer (Dynamic) */}
+        {selectedEmp && (
+          <div className="col-12 col-lg-4">
+            <div className="bg-white rounded-3 shadow-sm border p-4 sticky-top" style={{ top: '24px' }}>
+              <div className="d-flex justify-content-between align-items-start mb-3 pb-2 border-bottom">
+                <div>
+                  <span className="badge bg-primary-subtle text-primary font-monospace mb-1">
+                    {getEmpDataVal(selectedEmp, activeSchema[0]?.key || 'id')}
+                  </span>
+                  <h4 className="fw-bold mb-0 text-dark">
+                    {getEmpDataVal(selectedEmp, activeSchema[1]?.key || 'name')}
+                  </h4>
+                  <p className="text-secondary small mb-0">
+                    {getEmpDataVal(selectedEmp, activeSchema[2]?.key || 'role')}
+                  </p>
+                </div>
+                <button className="btn-close" onClick={() => setSelectedEmp(null)}></button>
               </div>
 
-              <div>
-                <span className="small text-secondary fw-semibold d-block">Work Email</span>
-                <span className="text-dark font-monospace small">{getEmpDataVal(selectedEmp, 'email')}</span>
-              </div>
+              <div className="d-flex flex-column gap-3">
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-primary flex-fill d-flex align-items-center justify-content-center gap-1" onClick={(e) => openEditModal(selectedEmp, e)}>
+                    <span>✏️</span> Edit Details
+                  </button>
+                  <button className="btn btn-sm btn-outline-danger flex-fill d-flex align-items-center justify-content-center gap-1" onClick={(e) => handleSingleRemove(selectedEmp.id, e)}>
+                    <span>🗑️</span> Remove
+                  </button>
+                </div>
 
-              {/* Administrative metadata, strictly collapsed under an expandable panel */}
-              <div className="accordion mt-3" id="adminMetadata">
-                <div className="accordion-item border-secondary-subtle">
-                  <h2 className="accordion-header">
-                    <button className="accordion-button collapsed py-2 px-3 small text-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#adminCollapse">
-                      System Details (Admin Only)
-                    </button>
-                  </h2>
-                  <div id="adminCollapse" className="accordion-collapse collapse" data-bs-parent="#adminMetadata">
-                    <div className="accordion-body p-3 font-monospace small text-secondary bg-light">
-                      <div>Record ID: {selectedEmp.id}</div>
-                      <div>Document ID: {selectedEmp.knowledge_document}</div>
-                      <div>Created: {new Date(selectedEmp.created_at).toLocaleDateString()}</div>
+                {Object.entries(selectedEmp.canonical_data || selectedEmp.employee_details || selectedEmp).map(([key, val]) => {
+                  if (['id', 'knowledge_document', 'created_at', 'updated_at', 'canonical_data', 'employee_details'].includes(key)) return null;
+                  const label = formatLabel(key);
+                  const isSalary = key.toLowerCase().includes('salary') || key.toLowerCase().includes('pay');
+                  const numVal = parseFloat(val);
+                  const displayVal = isSalary && !isNaN(numVal) ? `$${numVal.toLocaleString('en-US')}` : (val !== null && val !== undefined && val !== '' ? String(val) : 'N/A');
+
+                  return (
+                    <div key={key}>
+                      <span className="small text-secondary fw-semibold d-block">{label}</span>
+                      <span className={`text-dark ${isSalary ? 'fw-bold text-success font-monospace' : ''}`}>{displayVal}</span>
+                    </div>
+                  );
+                })}
+
+                {/* Administrative metadata */}
+                <div className="accordion mt-3" id="adminMetadata">
+                  <div className="accordion-item border-secondary-subtle">
+                    <h2 className="accordion-header">
+                      <button className="accordion-button collapsed py-2 px-3 small text-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#adminCollapse">
+                        System Details (Admin Only)
+                      </button>
+                    </h2>
+                    <div id="adminCollapse" className="accordion-collapse collapse" data-bs-parent="#adminMetadata">
+                      <div className="accordion-body p-3 font-monospace small text-secondary bg-light">
+                        <div>Record ID: {selectedEmp.id}</div>
+                        <div>Document ID: {selectedEmp.knowledge_document || 'N/A'}</div>
+                        <div>Created: {selectedEmp.created_at ? new Date(selectedEmp.created_at).toLocaleDateString() : 'N/A'}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {/* Add Employee Modal Overlay */}
-      {showAddModal && (
+        )}
+      </div>
+
+      {/* ✏️ Dynamic Edit Modal */}
+      {showEditModal && editingEmp && (
         <>
           <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>
           <div className="modal fade show d-block" tabIndex="-1" style={{ zIndex: 1050 }}>
             <div className="modal-dialog modal-dialog-centered modal-lg">
-              <div className="modal-content shadow border-0 rounded-3 bg-white" style={{ opacity: 1 }}>
-                <div className="modal-header bg-light py-3">
-                  <h5 className="modal-title fw-bold text-dark">Add New Employee</h5>
-                  <button type="button" className="btn-close" onClick={() => setShowAddModal(false)}></button>
+              <div className="modal-content border-0 shadow-lg">
+                <div className="modal-header bg-primary text-white">
+                  <h5 className="modal-title fw-bold">✏️ Edit Record Details</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setShowEditModal(false)}></button>
                 </div>
-                <form onSubmit={handleAddEmployee}>
-                  <div className="modal-body p-4" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                    {formError && <div className="alert alert-danger py-2">{formError}</div>}
-                    {formSuccess && <div className="alert alert-success py-2">{formSuccess}</div>}
-                    
+                <form onSubmit={handleSaveEdit}>
+                  <div className="modal-body p-4">
                     <div className="row g-3">
-                      <div className="col-md-4">
-                        <label className="form-label small fw-semibold text-secondary">Employee ID *</label>
-                        <input type="text" className="form-control" placeholder="EMP001" value={newEmpId} onChange={(e) => setNewEmpId(e.target.value)} required />
-                      </div>
-                      <div className="col-md-8">
-                        <label className="form-label small fw-semibold text-secondary">Full Name *</label>
-                        <input type="text" className="form-control" placeholder="John Doe" value={newName} onChange={(e) => setNewName(e.target.value)} required />
-                      </div>
-                      
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Work Email *</label>
-                        <input type="email" className="form-control" placeholder="johndoe@enterprise.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Department *</label>
-                        <input type="text" className="form-control" placeholder="Engineering" value={newDept} onChange={(e) => setNewDept(e.target.value)} required />
-                      </div>
-                      
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Role / Designation *</label>
-                        <input type="text" className="form-control" placeholder="Software Engineer" value={newRole} onChange={(e) => setNewRole(e.target.value)} required />
-                      </div>
-                      <div className="col-md-3">
-                        <label className="form-label small fw-semibold text-secondary">Experience (Years)</label>
-                        <input type="number" className="form-control" min="0" value={newExp} onChange={(e) => setNewExp(e.target.value)} />
-                      </div>
-                      <div className="col-md-3">
-                        <label className="form-label small fw-semibold text-secondary">Salary (USD/Year)</label>
-                        <input type="number" className="form-control" min="0" value={newSalary} onChange={(e) => setNewSalary(e.target.value)} />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Current Project</label>
-                        <input type="text" className="form-control" placeholder="Bench" value={newProject} onChange={(e) => setNewProject(e.target.value)} />
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Work Location</label>
-                        <input type="text" className="form-control" placeholder="Remote" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} />
-                      </div>
-
-                      <div className="col-md-12">
-                        <label className="form-label small fw-semibold text-secondary">Skills (Comma-separated)</label>
-                        <input type="text" className="form-control" placeholder="Python, Django, React, SQL" value={newSkills} onChange={(e) => setNewSkills(e.target.value)} />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Employment Status</label>
-                        <select className="form-select" value={newStatus} onChange={(e) => setNewStatus(e.target.value)}>
-                          <option value="Active">Active</option>
-                          <option value="Inactive">Inactive</option>
-                          <option value="Suspended">Suspended</option>
-                        </select>
-                      </div>
-                      <div className="col-md-6">
-                        <label className="form-label small fw-semibold text-secondary">Joining Date</label>
-                        <input type="date" className="form-control" value={newJoiningDate} onChange={(e) => setNewJoiningDate(e.target.value)} />
-                      </div>
+                      {activeSchema.map(col => (
+                        <div key={col.key} className="col-12 col-md-6">
+                          <label className="form-label small text-secondary fw-semibold">{col.label}</label>
+                          {col.type === 'number' ? (
+                            <input 
+                              type="number" 
+                              className="form-control"
+                              value={editFormData[col.key] !== undefined ? editFormData[col.key] : ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, [col.key]: e.target.value !== '' ? Number(e.target.value) : '' })}
+                            />
+                          ) : col.type === 'date' ? (
+                            <input 
+                              type="date" 
+                              className="form-control"
+                              value={editFormData[col.key] || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, [col.key]: e.target.value })}
+                            />
+                          ) : (
+                            <input 
+                              type="text" 
+                              className="form-control"
+                              value={editFormData[col.key] || ''}
+                              onChange={(e) => setEditFormData({ ...editFormData, [col.key]: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div className="modal-footer bg-light">
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</button>
-                    <button type="submit" className="btn btn-premium-primary btn-sm text-white" disabled={submitting}>
-                      {submitting ? 'Adding...' : 'Add Employee'}
+                    <button type="button" className="btn btn-outline-secondary" onClick={() => setShowEditModal(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary px-4" disabled={submitting}>
+                      {submitting ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
                 </form>
@@ -521,6 +913,220 @@ const EmployeeDirectory = () => {
           </div>
         </>
       )}
+
+      {/* 📥 Stack Add (Bulk Import) Modal */}
+      {showStackAddModal && (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>
+          <div className="modal fade show d-block" tabIndex="-1" style={{ zIndex: 1050 }}>
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content border-0 shadow-lg">
+                <div className="modal-header bg-primary text-white">
+                  <h5 className="modal-title fw-bold">📥 Stack Add — Bulk Import Dataset</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setShowStackAddModal(false)}></button>
+                </div>
+                
+                <div className="modal-body p-4">
+                  {/* Source Tabs */}
+                  <ul className="nav nav-pills nav-fill mb-4 p-1 bg-light rounded border">
+                    <li className="nav-item">
+                      <button 
+                        className={`nav-link fw-semibold ${importSourceTab === 'local' ? 'active bg-primary' : 'text-secondary'}`}
+                        onClick={() => handleTabChange('local')}
+                      >
+                        📁 Local File Upload (.csv / .xlsx)
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button 
+                        className={`nav-link fw-semibold ${importSourceTab === 'team' ? 'active bg-primary' : 'text-secondary'}`}
+                        onClick={() => handleTabChange('team')}
+                      >
+                        👥 Team Repository
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button 
+                        className={`nav-link fw-semibold ${importSourceTab === 'personal' ? 'active bg-primary' : 'text-secondary'}`}
+                        onClick={() => handleTabChange('personal')}
+                      >
+                        🔒 Personal Repository
+                      </button>
+                    </li>
+                  </ul>
+
+                  {/* Tab 1: Local File Upload */}
+                  {importSourceTab === 'local' && (
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold text-dark">Select Dataset File (.csv, .xlsx, .xls)</label>
+                      <input 
+                        type="file" 
+                        className="form-control form-control-lg mb-2"
+                        accept=".csv, .xlsx, .xls"
+                        onChange={handleStackFileChange}
+                      />
+                      <div className="d-flex justify-content-between align-items-center mt-2">
+                        <span className="small text-secondary">Accepted formats: Standard CSV or Excel Spreadsheets.</span>
+                        <button type="button" className="btn btn-link btn-sm p-0 text-decoration-none" onClick={downloadSampleTemplate}>
+                          📥 Download Sample CSV Template
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tab 2 & 3: Team / Personal Repository Selection */}
+                  {(importSourceTab === 'team' || importSourceTab === 'personal') && (
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold text-dark">
+                        Select Dataset Document from {importSourceTab === 'team' ? 'Team Repository' : 'Personal Repository'}
+                      </label>
+                      {loadingRepoDocs ? (
+                        <div className="text-center py-4">
+                          <span className="spinner-border spinner-border-sm me-2 text-primary"></span>
+                          Loading available repository documents...
+                        </div>
+                      ) : repoDocs.length > 0 ? (
+                        <div className="list-group max-height-250 overflow-auto border rounded">
+                          {repoDocs.map(doc => (
+                            <button
+                              key={doc.id}
+                              type="button"
+                              className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${selectedRepoDoc?.id === doc.id ? 'active' : ''}`}
+                              onClick={() => handleSelectRepoDocument(doc)}
+                            >
+                              <div>
+                                <div className="fw-semibold">{doc.title || doc.source_document?.original_name}</div>
+                                <div className="small opacity-75">{doc.record_count || 0} records • Ingested: {new Date(doc.created_at).toLocaleDateString()}</div>
+                              </div>
+                              <span className="badge bg-light text-dark font-monospace">{doc.document_type || 'DATASET'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="alert alert-warning py-3 mb-0">
+                          No valid dataset files found in {importSourceTab === 'team' ? 'Team Repository' : 'Personal Repository'}. Please upload a dataset file first.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Data Preview Table */}
+                  {stackPreviewRows.length > 0 && (
+                    <div className="mt-4">
+                      <h6 className="fw-bold text-secondary mb-2">Dataset Preview (First {stackPreviewRows.length} Rows):</h6>
+                      <div className="table-responsive border rounded max-height-200 overflow-auto">
+                        <table className="table table-sm table-striped mb-0 small">
+                          <thead className="table-light">
+                            <tr>
+                              {stackPreviewHeaders.map(h => (
+                                <th key={h}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stackPreviewRows.map((row, rIdx) => (
+                              <tr key={rIdx}>
+                                {stackPreviewHeaders.map(h => (
+                                  <td key={h}>{row[h] !== undefined ? String(row[h]) : ''}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Errors / Success Status */}
+                  {stackError && <div className="alert alert-danger py-2 mt-3 mb-0">{stackError}</div>}
+                  {stackSuccessMsg && <div className="alert alert-success py-2 mt-3 mb-0">{stackSuccessMsg}</div>}
+
+                </div>
+
+                <div className="modal-footer bg-light">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShowStackAddModal(false)}>Close</button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary px-4 fw-bold"
+                    onClick={handleStackAddSubmit}
+                    disabled={stackUploading || (importSourceTab === 'local' && !stackFile) || ((importSourceTab === 'team' || importSourceTab === 'personal') && !selectedRepoDoc)}
+                  >
+                    {stackUploading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        Importing Dataset...
+                      </>
+                    ) : '📥 Import Dataset'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Single Add Record Modal (Dynamic) */}
+      {showAddModal && (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>
+          <div className="modal fade show d-block" tabIndex="-1" style={{ zIndex: 1050 }}>
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content border-0 shadow-lg">
+                <div className="modal-header bg-primary text-white">
+                  <h5 className="modal-title fw-bold">+ Add New Record</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setShowAddModal(false)}></button>
+                </div>
+                <form onSubmit={handleAddRecord}>
+                  <div className="modal-body p-4">
+                    {formError && <div className="alert alert-danger py-2 mb-3">{formError}</div>}
+                    {formSuccess && <div className="alert alert-success py-2 mb-3">{formSuccess}</div>}
+
+                    <div className="row g-3">
+                      {activeSchema.map(col => (
+                        <div key={col.key} className="col-12 col-md-6">
+                          <label className="form-label small text-secondary fw-semibold">{col.label}</label>
+                          {col.type === 'number' ? (
+                            <input 
+                              type="number" 
+                              className="form-control"
+                              placeholder={`Enter ${col.label}`}
+                              value={addFormData[col.key] !== undefined ? addFormData[col.key] : ''}
+                              onChange={(e) => setAddFormData({ ...addFormData, [col.key]: e.target.value !== '' ? Number(e.target.value) : '' })}
+                            />
+                          ) : col.type === 'date' ? (
+                            <input 
+                              type="date" 
+                              className="form-control"
+                              value={addFormData[col.key] || ''}
+                              onChange={(e) => setAddFormData({ ...addFormData, [col.key]: e.target.value })}
+                            />
+                          ) : (
+                            <input 
+                              type="text" 
+                              className="form-control"
+                              placeholder={`Enter ${col.label}`}
+                              value={addFormData[col.key] || ''}
+                              onChange={(e) => setAddFormData({ ...addFormData, [col.key]: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="modal-footer bg-light">
+                    <button type="button" className="btn btn-outline-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-primary px-4" disabled={submitting}>
+                      {submitting ? 'Saving...' : 'Save Record'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
     </div>
   );
 };

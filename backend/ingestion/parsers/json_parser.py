@@ -15,14 +15,22 @@ class JSONParser(BaseDocumentParser):
             with open(file_path, 'r', encoding='utf-8') as f:
                 raw_text = f.read()
                 
+            from common.constants import PREVIEW_MAX_TEXT_BYTES
+            
             # Attempt to decode JSON structures
             data = json.loads(raw_text)
             
+            content_preview = raw_text
+            if len(raw_text) > PREVIEW_MAX_TEXT_BYTES:
+                content_preview = raw_text[:PREVIEW_MAX_TEXT_BYTES] + "\n... [raw json text truncated due to size]"
+
             return {
-                "content": raw_text,
+                "content": content_preview,
                 "structured_data": data if isinstance(data, dict) else {"data": data},
                 "metadata": {
-                    "is_nested": any(isinstance(val, (dict, list)) for val in data.values()) if isinstance(data, dict) else False
+                    "is_nested": any(isinstance(val, (dict, list)) for val in data.values()) if isinstance(data, dict) else False,
+                    "raw_character_count": len(raw_text),
+                    "preview_truncated": len(raw_text) > PREVIEW_MAX_TEXT_BYTES
                 },
                 "parser_type": "JSON",
                 "processing_status": "PARSED"

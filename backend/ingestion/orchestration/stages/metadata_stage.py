@@ -30,6 +30,12 @@ class MetadataStage(BaseStage):
             metadata_service = MetadataOrchestrationService()
             metadata_obj = metadata_service.extract(doc, parser_res, ocr_res)
 
+            # Preserve initial upload metadata (repository_type, folder_id, relative_path, target_logical_path)
+            if doc and doc.metadata and isinstance(doc.metadata, dict):
+                for k, v in doc.metadata.items():
+                    if k not in metadata_obj or not metadata_obj[k]:
+                        metadata_obj[k] = v
+
             context.metadata = metadata_obj
 
             return {

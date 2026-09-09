@@ -29,7 +29,7 @@ class CandidateRepository:
     def create(self, **fields) -> KnowledgeCandidate:
         return KnowledgeCandidate.objects.create(**fields)
 
-    def bulk_create(self, candidates_list) -> list:
+    def bulk_create(self, candidates_list, batch_size=500) -> list:
         """
         Bulk inserts KnowledgeCandidate objects, filtering out duplicates by hash.
         Returns the list of created records.
@@ -37,16 +37,21 @@ class CandidateRepository:
         if not candidates_list:
             return []
             
-        # Exclude candidates that already exist with the same hash
-        existing_hashes = set(KnowledgeCandidate.objects.filter(
-            candidate_hash__in=[c.candidate_hash for c in candidates_list]
-        ).values_list('candidate_hash', flat=True))
+        # Exclude candidates that already exist with the same hash (chunked to respect DB limits)
+        all_hashes = [c.candidate_hash for c in candidates_list]
+        existing_hashes = set()
+        chunk_size = 500
+        for i in range(0, len(all_hashes), chunk_size):
+            chunk = all_hashes[i:i + chunk_size]
+            existing_hashes.update(
+                KnowledgeCandidate.objects.filter(candidate_hash__in=chunk).values_list('candidate_hash', flat=True)
+            )
         
         filtered_list = [c for c in candidates_list if c.candidate_hash not in existing_hashes]
         if not filtered_list:
             return []
             
-        return KnowledgeCandidate.objects.bulk_create(filtered_list)
+        return KnowledgeCandidate.objects.bulk_create(filtered_list, batch_size=batch_size)
 
     def delete_by_batch(self, batch_id):
         return KnowledgeCandidate.objects.filter(batch_id=batch_id).delete()
