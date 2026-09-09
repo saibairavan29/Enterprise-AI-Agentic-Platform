@@ -1,8 +1,0 @@
-Employee ID,Employee Name,Department,Email,Phone,Salary,Joining Date,Manager,Project,Status
-EMP901,Elena Gilbert,Operations,elena.gilbert@enterprise.com,+1-555-901-0001,80000,2025-01-10,Stefan Salvatore,Project Red (Confidential),Active
-EMP902,Damon Salvatore,Engineering,damon.salvatore@enterprise.com,+1-555-902-0002,90000,2024-06-15,Alaric Saltzman,Project Alpha,Active
-EMP903,Caroline Forbes,Marketing,caroline.forbes@enterprise.com,+1-555-903-0003,75000,2023-09-01,Sarah Connor,Project Beta,Active
-EMP904,Bonnie Bennett,Human Resources,bonnie.bennett@enterprise.com,+1-555-904-0004,85000,2022-11-20,Tyler Lockwood,Project Gamma,Active
-EMP905,Matt Donovan,Finance,,+1-555-905-0005,-5000,2025-03-01,Klaus Mikaelson,,Active
-EMP906,Jeremy Gilbert,Operations,jeremy.gilbert_at_enterprise.com,invalid-phone,60000,2024-02-15,,Project Delta,Active
-EMP907,Klaus Mikaelson,Leadership,klaus.mikaelson@enterprise.com,+1-555-907-0007,15000000,2020-01-01,Elijah Mikaelson,Project Global,Active
