@@ -60,6 +60,7 @@ desktop.ini
 
 # Large datasets / local research datasets
 Datasets/
-Dataset Final/
+datasets/
 *.csv
-sample_dirty_*
+sample_dirty_*.json
+backend/reports/
