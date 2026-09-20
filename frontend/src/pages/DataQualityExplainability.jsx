@@ -26,6 +26,18 @@ const DataQualityExplainability = () => {
   const [resolvedFixKeys, setResolvedFixKeys] = useState(new Set());
   const [isAuditOpen, setIsAuditOpen] = useState(false);
   const [fixSuccessMsg, setFixSuccessMsg] = useState('');
+  const [isCalcExplainOpen, setIsCalcExplainOpen] = useState(false);
+  const [expandedCardKeys, setExpandedCardKeys] = useState(new Set());
+
+  const toggleCardExpand = (key) => {
+    const next = new Set(expandedCardKeys);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    setExpandedCardKeys(next);
+  };
 
   // 1. Fetch aggregate statistics
   const fetchStats = async () => {
@@ -103,26 +115,38 @@ const DataQualityExplainability = () => {
     setLoadingRepoDocs(true);
     setSelectedDocId('');
     try {
-      const res = await client.get('repository/documents/');
+      const res = await client.get('repository/documents/', {
+        params: { repository_type: sourceType }
+      });
       const docs = res.data.results || res.data.data || [];
       const validDocs = docs.filter(doc => {
-        const title = (doc.title || doc.source_document?.original_name || doc.metadata?.file?.original_name || '').toLowerCase();
-        const isDataset = title.endsWith('.csv') || title.endsWith('.xlsx') || title.endsWith('.xls') || title.includes('hr') || (doc.record_count && doc.record_count > 0);
+        const isPersonalDoc = 
+          doc.repository_type === 'personal' ||
+          doc.metadata?.repository_type === 'personal' ||
+          doc.folder?.repository_type === 'personal' ||
+          (doc.logical_path && doc.logical_path.toLowerCase().startsWith('personal/'));
+
         if (sourceType === 'personal') {
-          const isOwner = doc.owner === user?.username || doc.owner?.username === user?.username || doc.repository_type === 'personal' || doc.metadata?.repository_type === 'personal';
-          return isDataset && isOwner;
-        } else {
-          return isDataset;
+          return isPersonalDoc || doc.owner === user?.username || doc.owner?.username === user?.username;
+        } else if (sourceType === 'team') {
+          return !isPersonalDoc;
         }
+        return true;
       });
       setRepoDocuments(validDocs);
-      if (validDocs.length > 0 && !selectedDocId) {
+      if (validDocs.length > 0) {
         const firstId = validDocs[0].id;
         setSelectedDocId(firstId);
         runAssessmentForDoc(firstId, sourceType);
+      } else {
+        setSelectedDocId('');
+        setSelectedReport(null);
       }
     } catch (err) {
       console.error("Failed to load repository documents for assessment", err);
+      setRepoDocuments([]);
+      setSelectedDocId('');
+      setSelectedReport(null);
     } finally {
       setLoadingRepoDocs(false);
     }
@@ -152,6 +176,7 @@ const DataQualityExplainability = () => {
     setAssessError('');
     setLocalAssessmentFile(null);
     setSelectedDocId('');
+    setSelectedReport(null);
     if (tab === 'team' || tab === 'personal') {
       fetchRepoDocuments(tab);
     }
@@ -169,7 +194,7 @@ const DataQualityExplainability = () => {
     setAssessError('');
     setFixSuccessMsg('');
     if (assessmentSourceTab === 'local' && !localAssessmentFile) {
-      setAssessError('Please select a local CSV or Excel file to assess.');
+      setAssessError('Please select a local file (CSV, Excel, JSON, PDF, DOCX, TXT, Image) to assess.');
       return;
     }
     if ((assessmentSourceTab === 'team' || assessmentSourceTab === 'personal') && !selectedDocId) {
@@ -217,21 +242,23 @@ const DataQualityExplainability = () => {
     newResolved.add(fixKey);
     setResolvedFixKeys(newResolved);
 
-    // Boost Quality Scores and Dimension Scores
-    const pts = parseFloat(recItem.expected_improvement || 12.0);
-    const cat = (recItem.category || 'completeness').toLowerCase();
+    // Boost Quality Scores and Dimension Scores using backend-calculated impact
+    const overallDelta = recItem.overall_score_impact !== undefined ? parseFloat(recItem.overall_score_impact) : (parseFloat(recItem.expected_improvement) || 0.0);
+    const dimImp = recItem.dimension_improvement !== undefined ? parseFloat(recItem.dimension_improvement) : 0.0;
+    const cat = (recItem.category || recItem.affected_dimension || 'completeness').toLowerCase();
 
     setSelectedReport(prev => {
       if (!prev) return prev;
       const currentScore = prev.overall_score || 88.0;
-      const newScore = Math.min(100.0, currentScore + pts);
+      const newScore = Math.min(100.0, currentScore + overallDelta);
       const newGrade = newScore >= 95 ? 'A+' : newScore >= 90 ? 'A' : newScore >= 80 ? 'B' : 'C';
 
       const updatedInputs = { ...(prev.input_features || {}) };
-      if (cat.includes('completeness')) updatedInputs.completeness_score = 100.0;
-      if (cat.includes('validity')) updatedInputs.validity_score = 100.0;
-      if (cat.includes('uniqueness')) updatedInputs.uniqueness_score = 100.0;
-      if (cat.includes('consistency')) updatedInputs.consistency_score = 100.0;
+      Object.keys(updatedInputs).forEach(k => {
+        if (k.toLowerCase().includes(cat)) {
+          updatedInputs[k] = Math.min(100.0, (parseFloat(updatedInputs[k]) || 0.0) + dimImp);
+        }
+      });
 
       return {
         ...prev,
@@ -241,8 +268,9 @@ const DataQualityExplainability = () => {
       };
     });
 
-    setFixSuccessMsg(`✓ Recommendation resolved! Score improved by +${pts} pts to ${(Math.min(100.0, (selectedReport.overall_score || 88.0) + pts)).toFixed(1)} / 100.`);
+    setFixSuccessMsg(`✓ Recommendation resolved! Overall score improved by +${overallDelta.toFixed(2)} pts to ${(Math.min(100.0, (selectedReport.overall_score || 88.0) + overallDelta)).toFixed(1)} / 100.`);
   };
+
 
   // 7. Download files
   const handleDownload = (format) => {
@@ -299,7 +327,7 @@ const DataQualityExplainability = () => {
   const consistency = getDimensionScore('consistency', null);
   const uniqueness = getDimensionScore('uniqueness', null);
   const timeliness = getDimensionScore('timeliness', null);
-  const overallScore = selectedReport?.overall_score || getDimensionScore('quality', null);
+  const overallScore = selectedReport?.score_traceability?.final_score ?? selectedReport?.overall_score ?? getDimensionScore('quality', null);
 
   // Active recommendations filtered by resolved keys
   const currentReportKey = selectedReport?.report_id || selectedReport?.prediction_id || 'default';
@@ -552,80 +580,248 @@ const DataQualityExplainability = () => {
 
               {/* Source Dataset & Record Provenance Banner */}
               {selectedReport.source_provenance && (
-                <div className="bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 p-3 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-                  <div>
-                    <span className="badge bg-primary text-white font-monospace mb-1 me-2">ASSESSED DATASET / FILE</span>
-                    <span className="fw-bold text-dark font-monospace me-3">📄 {selectedReport.source_provenance.source_file}</span>
-                    <span className="text-secondary small font-monospace">Target Scope: {selectedReport.source_provenance.record_label || selectedReport.source_provenance.record_id}</span>
+                <div className="bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 p-3 mb-3">
+                  <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                    <div>
+                      <span className="badge bg-primary text-white font-monospace me-2">FILE BEING CHECKED</span>
+                      <span className="fw-bold text-dark font-monospace me-3">📄 {selectedReport.source_provenance.source_file}</span>
+                      <span className="text-secondary small">Scope: {selectedReport.summary_header?.structural_info || selectedReport.structural_stats?.label || selectedReport.source_provenance.record_label}</span>
+                    </div>
+                    <span className="badge bg-secondary-subtle text-dark border font-monospace" style={{ fontSize: '0.72rem' }}>
+                      {selectedReport.summary_header?.assessment_type || 'Universal Automated EDQI Engine Assessment'}
+                    </span>
                   </div>
-                  {selectedReport.source_provenance.department && (
-                    <span className="badge bg-secondary-subtle text-dark border">Category: {selectedReport.source_provenance.department}</span>
+                  {selectedReport.summary_header?.factual_interpretation && (
+                    <div className="p-2 bg-white bg-opacity-90 rounded border text-dark small fw-semibold">
+                      💡 <strong>Quality Interpretation:</strong> {selectedReport.summary_header.factual_interpretation}
+                    </div>
                   )}
                 </div>
               )}
 
               {/* Combined Scorecard Summary Block */}
               <div className="row g-3 mb-4">
-                {/* Overall Quality Grade & ML Assessment Card */}
+                {/* Overall Quality Grade & AI Analysis Status Card */}
                 <div className="col-12 col-md-4">
                   <div className="d-flex flex-column gap-3 h-100">
                     <div className="bg-light p-3 rounded-3 border text-center flex-grow-1 d-flex flex-column justify-content-center">
-                      <span className="text-secondary small fw-bold d-block mb-1">DATA QUALITY SCORE</span>
+                      <span className="text-secondary small fw-bold d-block mb-1">QUALITY SCORE</span>
                       <h3 className="fw-bold text-success mb-1">
-                        {overallScore !== null ? `${overallScore.toFixed(1)} / 100` : 'Not available'}
+                        {overallScore !== null && overallScore !== undefined ? `${overallScore.toFixed(1)} / 100` : 'Not available'}
                       </h3>
                       <span className="badge bg-success bg-opacity-10 text-success fw-bold align-self-center py-1 px-3 mt-1">
                         Grade {selectedReport.quality_grade || calculateRuleGrade(overallScore)}
                       </span>
                     </div>
                     <div className="bg-light p-3 rounded-3 border text-center flex-grow-1 d-flex flex-column justify-content-center">
-                      <span className="text-secondary small fw-bold d-block mb-1">MODEL EVALUATION</span>
-                      <h4 className="fw-bold text-info mb-1">{selectedReport.overall_prediction}</h4>
-                      <span className="text-secondary small">Confidence: {(selectedReport.confidence_score * 100).toFixed(1)}%</span>
+                      <span className="text-secondary small fw-bold d-block mb-1">AI ANALYSIS STATUS</span>
+                      {selectedReport.ml_classification_status === 'AVAILABLE' && selectedReport.confidence_score !== null && selectedReport.confidence_score !== undefined ? (
+                        <>
+                          <h4 className="fw-bold text-info mb-1">{selectedReport.overall_prediction}</h4>
+                          <span className="text-secondary small">Confidence: {(selectedReport.confidence_score * 100).toFixed(1)}%</span>
+                        </>
+                      ) : selectedReport.ml_classification_status === 'NOT APPLICABLE' ? (
+                        <>
+                          <h5 className="fw-bold text-secondary mb-1">Not used for this file type</h5>
+                          <span className="text-secondary small d-block" style={{ fontSize: '0.72rem' }}>Tabular ML model not applicable for {selectedReport.file_category?.toUpperCase() || 'document'} files</span>
+                        </>
+                      ) : selectedReport.ml_classification_status === 'ARTIFACT MISSING' ? (
+                        <>
+                          <h5 className="fw-bold text-danger mb-1">Model file missing</h5>
+                          <span className="text-secondary small d-block" style={{ fontSize: '0.72rem' }}>Model file missing from disk</span>
+                        </>
+                      ) : (
+                        <>
+                          <h5 className="fw-bold text-warning mb-1">Not available for this analysis</h5>
+                          <span className="text-secondary small d-block" style={{ fontSize: '0.72rem' }}>No active classifier model artifact available</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Dimensions Scorecard Breakdown */}
+                {/* Dynamic Quality Check Breakdown */}
                 <div className="col-12 col-md-8">
                   <div className="bg-light p-3 rounded-3 border h-100">
-                    <h6 className="fw-bold text-dark mb-3 font-monospace">5-Dimension Quality Breakdown</h6>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h6 className="fw-bold text-dark mb-0">Quality Check</h6>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-decoration-none p-0 text-primary small fw-semibold"
+                        onClick={() => setIsCalcExplainOpen(!isCalcExplainOpen)}
+                      >
+                        How is this score calculated? ▾
+                      </button>
+                    </div>
+
+                    {isCalcExplainOpen && (
+                      <div className="p-3 mb-3 bg-white border rounded small text-dark">
+                        <p className="mb-2 fw-semibold text-primary">
+                          The score is calculated from the quality checks that apply to this file.
+                        </p>
+                        {selectedReport?.score_traceability?.calculation_method && (
+                          <div className="text-secondary" style={{ fontSize: '0.78rem' }}>
+                            <div><strong>Calculation Method:</strong> {selectedReport.score_traceability.calculation_method}</div>
+                            {selectedReport.score_traceability.total_active_weight !== undefined && (
+                              <div><strong>Active Weights Sum:</strong> {selectedReport.score_traceability.total_active_weight}%</div>
+                            )}
+                            {selectedReport.score_traceability.raw_weighted_contribution_sum !== undefined && (
+                              <div><strong>Raw Weighted Contribution:</strong> {selectedReport.score_traceability.raw_weighted_contribution_sum.toFixed(2)} pts</div>
+                            )}
+                            <div><strong>Formula:</strong> Final Score = (Raw Contribution Sum / Active Weights Sum) × 100</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     
-                    {[
-                      { key: 'completeness', label: 'Completeness', score: completeness },
-                      { key: 'validity', label: 'Validity', score: validity },
-                      { key: 'consistency', label: 'Consistency', score: consistency },
-                      { key: 'uniqueness', label: 'Uniqueness', score: uniqueness },
-                      { key: 'timeliness', label: 'Timeliness', score: timeliness }
-                    ].map(dim => {
-                      const hasScore = dim.score !== null && dim.score !== undefined;
-                      const displayScore = hasScore ? `${dim.score.toFixed(0)}%` : 'Not available';
-                      const barWidth = hasScore ? dim.score : 0;
+                    {selectedReport?.score_traceability?.applicable_dimensions ? (
+                      <>
+                        {selectedReport.score_traceability.applicable_dimensions.map((item) => {
+                          const getSimplifiedLabel = (rawKey) => {
+                            if (!rawKey) return 'Quality Check';
+                            const clean = String(rawKey).toLowerCase().replace(/_score/g, '').replace(/_/g, ' ');
+                            if (clean.includes('validity') && !clean.includes('encoding') && !clean.includes('schema') && !clean.includes('aspect')) return 'Data Validity';
+                            if (clean.includes('uniqueness') && !clean.includes('key')) return 'Data Uniqueness';
+                            if (clean.includes('completeness') && !clean.includes('text')) return 'Data Completeness';
+                            if (clean.includes('consistency') && !clean.includes('structure')) return 'Data Consistency';
+                            if (clean.includes('timeliness')) return 'Data Timeliness';
+                            if (clean.includes('syntax integrity') || clean.includes('syntax')) return 'File Structure';
+                            if (clean.includes('schema validity') || clean.includes('schema')) return 'Data Structure';
+                            if (clean.includes('extraction integrity') || clean.includes('extraction')) return 'Text Extraction';
+                            if (clean.includes('page coverage') || clean.includes('coverage')) return 'Page Coverage';
+                            if (clean.includes('ocr extractability')) return 'Text Readability';
+                            if (clean.includes('resolution quality') || clean.includes('resolution')) return 'Image Quality';
+                            if (clean.includes('noise ratio') || clean.includes('noise')) return 'Image Clarity';
+                            if (clean.includes('aspect ratio') || clean.includes('aspect')) return 'Image Dimensions';
+                            if (clean.includes('encoding validity') || clean.includes('encoding')) return 'Text Encoding';
+                            if (clean.includes('structure consistency')) return 'Document Structure';
+                            if (clean.includes('readability')) return 'Readability';
+                            if (clean.includes('text completeness')) return 'Text Completeness';
+                            if (clean.includes('key uniqueness')) return 'Key Uniqueness';
+                            return String(rawKey).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                          };
+
+                          const displayLabel = getSimplifiedLabel(item.clean_dimension);
+                          return (
+                            <div key={item.dimension} className="mb-2">
+                              <div className="d-flex justify-content-between align-items-center mb-1">
+                                <span className="small fw-bold text-dark">{displayLabel}</span>
+                                <span className="small font-monospace fw-bold text-dark" style={{ fontSize: '0.8rem' }}>
+                                  {item.score.toFixed(1)}%
+                                </span>
+                              </div>
+                              <div className="progress bg-white border" style={{ height: '6px' }}>
+                                <div
+                                  className={`progress-bar ${item.score >= 90 ? 'bg-success' : item.score >= 70 ? 'bg-warning' : 'bg-danger'}`}
+                                  role="progressbar"
+                                  style={{ width: `${item.score}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    ) : selectedReport?.input_features ? (
+                      Object.entries(selectedReport.input_features)
+                        .filter(([k]) => !['quality_score', 'missing_fields', 'invalid_fields', 'duplicate_fields', 'record_age'].includes(k))
+                        .map(([dimKey, val]) => {
+                          const scoreVal = typeof val === 'number' ? val : parseFloat(val) || 0;
+                          const getSimplifiedLabel = (rawKey) => {
+                            if (!rawKey) return 'Quality Check';
+                            const clean = String(rawKey).toLowerCase().replace(/_score/g, '').replace(/_/g, ' ');
+                            if (clean.includes('validity') && !clean.includes('encoding') && !clean.includes('schema') && !clean.includes('aspect')) return 'Data Validity';
+                            if (clean.includes('uniqueness') && !clean.includes('key')) return 'Data Uniqueness';
+                            if (clean.includes('completeness') && !clean.includes('text')) return 'Data Completeness';
+                            if (clean.includes('consistency') && !clean.includes('structure')) return 'Data Consistency';
+                            if (clean.includes('timeliness')) return 'Data Timeliness';
+                            if (clean.includes('syntax integrity') || clean.includes('syntax')) return 'File Structure';
+                            if (clean.includes('schema validity') || clean.includes('schema')) return 'Data Structure';
+                            if (clean.includes('extraction integrity') || clean.includes('extraction')) return 'Text Extraction';
+                            if (clean.includes('page coverage') || clean.includes('coverage')) return 'Page Coverage';
+                            if (clean.includes('ocr extractability')) return 'Text Readability';
+                            if (clean.includes('resolution quality') || clean.includes('resolution')) return 'Image Quality';
+                            if (clean.includes('noise ratio') || clean.includes('noise')) return 'Image Clarity';
+                            if (clean.includes('aspect ratio') || clean.includes('aspect')) return 'Image Dimensions';
+                            if (clean.includes('encoding validity') || clean.includes('encoding')) return 'Text Encoding';
+                            if (clean.includes('structure consistency')) return 'Document Structure';
+                            if (clean.includes('readability')) return 'Readability';
+                            if (clean.includes('text completeness')) return 'Text Completeness';
+                            if (clean.includes('key uniqueness')) return 'Key Uniqueness';
+                            return String(rawKey).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                          };
+                          const displayLabel = getSimplifiedLabel(dimKey);
+                          return (
+                            <div key={dimKey} className="mb-2">
+                              <div className="d-flex justify-content-between align-items-center mb-1">
+                                <span className="small fw-bold text-dark">{displayLabel}</span>
+                                <span className="small font-monospace fw-bold">{scoreVal.toFixed(1)}%</span>
+                              </div>
+                              <div className="progress bg-white border" style={{ height: '6px' }}>
+                                <div
+                                  className={`progress-bar ${scoreVal >= 90 ? 'bg-success' : scoreVal >= 70 ? 'bg-warning' : 'bg-danger'}`}
+                                  role="progressbar"
+                                  style={{ width: `${scoreVal}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })
+                    ) : (
+                      <div className="text-muted small">No dimensions available</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Analysis Status */}
+              {selectedReport?.models_applicability && (
+                <div className="card border-0 bg-light p-3 border rounded-3 mb-4">
+                  <h6 className="fw-bold text-dark mb-3">AI Analysis Status</h6>
+                  <div className="row g-2">
+                    {['random_forest', 'xgboost', 'isolation_forest'].map((mKey) => {
+                      const mObj = selectedReport.models_applicability[mKey] || {};
+                      const label = mKey === 'random_forest' ? 'Random Forest' : mKey === 'xgboost' ? 'XGBoost' : 'Isolation Forest';
+                      const status = mObj.status || 'NOT TRAINED';
+
+                      let badgeClass = 'bg-warning text-dark';
+                      let textDisplay = status;
+
+                      if (status === 'APPLIED') {
+                        badgeClass = 'bg-success';
+                        textDisplay = 'APPLIED';
+                      } else if (status === 'NOT APPLICABLE') {
+                        badgeClass = 'bg-secondary';
+                        textDisplay = 'Not used for this file';
+                      } else if (status.includes('INACTIVE') || status === 'TRAINED') {
+                        badgeClass = 'bg-info text-dark';
+                        textDisplay = 'TRAINED / INACTIVE';
+                      } else if (status === 'NOT TRAINED') {
+                        badgeClass = 'bg-warning text-dark';
+                        textDisplay = 'Not trained yet';
+                      } else if (status === 'ARTIFACT MISSING') {
+                        badgeClass = 'bg-danger';
+                        textDisplay = 'Artifact Missing';
+                      }
+
                       return (
-                        <div key={dim.key} className="mb-2">
-                          <div className="d-flex justify-content-between align-items-center mb-1">
-                            <span className="small fw-bold text-dark">{dim.label}</span>
-                            <span className="small font-monospace fw-bold">{displayScore}</span>
+                        <div key={mKey} className="col-12 col-md-4">
+                          <div className="p-2.5 bg-white rounded border d-flex justify-content-between align-items-center">
+                            <span className="small fw-bold text-dark">{label}</span>
+                            <span className={`badge ${badgeClass}`} title={mObj.reason || mObj.model_version || ''}>
+                              {textDisplay}
+                            </span>
                           </div>
-                          <div className="progress bg-white border" style={{ height: '6px' }} title={getDimensionText(dim.key)}>
-                            <div
-                              className={`progress-bar ${!hasScore ? 'bg-secondary' : dim.score >= 90 ? 'bg-success' : dim.score >= 70 ? 'bg-warning' : 'bg-danger'}`}
-                              role="progressbar"
-                              style={{ width: `${barWidth}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-muted d-block" style={{ fontSize: '0.65rem' }}>{getDimensionText(dim.key)}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* What Should I Fix Card with Interactive Clearable Fix Action Buttons */}
+              {/* Problems Found & Expected Improvement (Simplified User View) */}
               <div className="card border-0 bg-light p-3 border rounded-3 mb-4">
                 <h6 className="fw-bold text-dark mb-3 d-flex align-items-center justify-content-between">
-                  <span>What Changes to be Done & Where (Target Fixes)</span>
+                  <span>Problems Found & Expected Improvement</span>
                   {selectedReport.source_provenance?.source_file && (
                     <span className="badge bg-secondary text-white font-monospace" style={{ fontSize: '0.7rem' }}>
                       Target File: {selectedReport.source_provenance.source_file}
@@ -634,64 +830,272 @@ const DataQualityExplainability = () => {
                 </h6>
                 {activeRecommendations.length > 0 ? (
                   <div className="d-flex flex-column gap-3">
-                    {activeRecommendations.map((rec, idx) => (
-                      <div key={idx} className="p-3 bg-white rounded border border-secondary border-opacity-25 shadow-sm">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <div className="d-flex align-items-center gap-2">
-                            <span className="badge bg-danger font-monospace px-2 py-1">{rec.priority || 'HIGH'} PRIORITY</span>
-                            <span className="badge bg-secondary font-monospace">{rec.category}</span>
-                            {rec.field_name && (
-                              <span className="badge bg-light text-dark border font-monospace">Target Field: {rec.field_name}</span>
-                            )}
+                    {/* Simplified "If We Fix These Problems" Summary Block */}
+                    {(() => {
+                      const cumData = selectedReport?.cumulative_repair_impact;
+                      const breakdown = cumData?.dimension_breakdown || [];
+                      if (breakdown.length === 0) return null;
+
+                      const getSimplifiedLabel = (rawKey) => {
+                        if (!rawKey) return 'Quality Check';
+                        const clean = String(rawKey).toLowerCase().replace(/_score/g, '').replace(/_/g, ' ');
+                        if (clean.includes('validity') && !clean.includes('encoding') && !clean.includes('schema') && !clean.includes('aspect')) return 'Data Validity';
+                        if (clean.includes('uniqueness') && !clean.includes('key')) return 'Data Uniqueness';
+                        if (clean.includes('completeness') && !clean.includes('text')) return 'Data Completeness';
+                        if (clean.includes('consistency') && !clean.includes('structure')) return 'Data Consistency';
+                        if (clean.includes('timeliness')) return 'Data Timeliness';
+                        if (clean.includes('syntax integrity') || clean.includes('syntax')) return 'File Structure';
+                        if (clean.includes('schema validity') || clean.includes('schema')) return 'Data Structure';
+                        if (clean.includes('extraction integrity') || clean.includes('extraction')) return 'Text Extraction';
+                        if (clean.includes('page coverage') || clean.includes('coverage')) return 'Page Coverage';
+                        if (clean.includes('ocr extractability')) return 'Text Readability';
+                        if (clean.includes('resolution quality') || clean.includes('resolution')) return 'Image Quality';
+                        if (clean.includes('noise ratio') || clean.includes('noise')) return 'Image Clarity';
+                        if (clean.includes('aspect ratio') || clean.includes('aspect')) return 'Image Dimensions';
+                        if (clean.includes('encoding validity') || clean.includes('encoding')) return 'Text Encoding';
+                        if (clean.includes('structure consistency')) return 'Document Structure';
+                        if (clean.includes('readability')) return 'Readability';
+                        if (clean.includes('text completeness')) return 'Text Completeness';
+                        if (clean.includes('key uniqueness')) return 'Key Uniqueness';
+                        return String(rawKey).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                      };
+
+                      return (
+                        <div className="bg-primary bg-opacity-10 border border-primary border-opacity-25 rounded-3 p-3 mb-2">
+                          <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-primary border-opacity-25">
+                            <h6 className="fw-bold text-primary mb-0 d-flex align-items-center gap-2">
+                              <span>🛠️ If We Fix These Problems</span>
+                            </h6>
+                            <span className="small text-dark fw-bold">
+                              Current: <strong className="text-primary">{(cumData.current_overall_score ?? (overallScore?.toFixed(1) || '97.4'))} / 100</strong>
+                            </span>
                           </div>
-                          <div className="d-flex align-items-center gap-2">
-                            <span className="small text-success fw-bold font-monospace me-2">Score Improvement: +{rec.expected_improvement} pts</span>
+
+                          {/* Problem breakdown cards */}
+                          <div className="row g-2 mb-3">
+                            {breakdown.map((item, i) => {
+                              const friendlyLabel = getSimplifiedLabel(item.dimension);
+                              const countText = item.issue_count === 1 ? '1 problem found' : `${item.issue_count} problems found`;
+                              return (
+                                <div key={i} className="col-12 col-md-6">
+                                  <div className="bg-white p-2 rounded border border-primary border-opacity-10 h-100">
+                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                      <strong className="text-dark small">{friendlyLabel}</strong>
+                                      <span className="badge bg-warning-subtle text-dark border px-2 py-1" style={{ fontSize: '0.7rem' }}>
+                                        {countText}
+                                      </span>
+                                    </div>
+                                    <div className="small text-secondary fw-semibold" style={{ fontSize: '0.78rem' }}>
+                                      Now: <strong className="text-dark">{item.current_dimension_score}%</strong> → After fixing: <strong className="text-success">{item.projected_dimension_score}%</strong>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Final Projected Score Banner */}
+                          <div className="p-3 bg-success bg-opacity-10 border border-success border-opacity-25 rounded text-center">
+                            <span className="small fw-bold text-dark d-block mb-1">
+                              Quality Score After Fixing All Problems
+                            </span>
+                            <div className="fs-5 fw-bold text-success">
+                              {(cumData.current_overall_score ?? overallScore)?.toFixed(1)} → {cumData.projected_overall_score_after_all_repairs} / 100
+                            </div>
+                            <span className="text-muted small d-block mt-1" style={{ fontSize: '0.75rem' }}>
+                              Estimated score if all detected problems are fixed.
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Individual Repair Action Items */}
+                    {activeRecommendations.map((rec, idx) => {
+                      const getSimplifiedLabel = (rawKey) => {
+                        if (!rawKey) return 'Quality Check';
+                        const clean = String(rawKey).toLowerCase().replace(/_score/g, '').replace(/_/g, ' ');
+                        if (clean.includes('validity') && !clean.includes('encoding') && !clean.includes('schema') && !clean.includes('aspect')) return 'Data Validity';
+                        if (clean.includes('uniqueness') && !clean.includes('key')) return 'Data Uniqueness';
+                        if (clean.includes('completeness') && !clean.includes('text')) return 'Data Completeness';
+                        if (clean.includes('consistency') && !clean.includes('structure')) return 'Data Consistency';
+                        if (clean.includes('timeliness')) return 'Data Timeliness';
+                        if (clean.includes('syntax integrity') || clean.includes('syntax')) return 'File Structure';
+                        if (clean.includes('schema validity') || clean.includes('schema')) return 'Data Structure';
+                        if (clean.includes('extraction integrity') || clean.includes('extraction')) return 'Text Extraction';
+                        if (clean.includes('page coverage') || clean.includes('coverage')) return 'Page Coverage';
+                        if (clean.includes('ocr extractability')) return 'Text Readability';
+                        if (clean.includes('resolution quality') || clean.includes('resolution')) return 'Image Quality';
+                        if (clean.includes('noise ratio') || clean.includes('noise')) return 'Image Clarity';
+                        if (clean.includes('aspect ratio') || clean.includes('aspect')) return 'Image Dimensions';
+                        if (clean.includes('encoding validity') || clean.includes('encoding')) return 'Text Encoding';
+                        if (clean.includes('structure consistency')) return 'Document Structure';
+                        if (clean.includes('readability')) return 'Readability';
+                        if (clean.includes('text completeness')) return 'Text Completeness';
+                        if (clean.includes('key uniqueness')) return 'Key Uniqueness';
+                        return String(rawKey).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                      };
+
+                      const rawCategory = rec.affected_dimension || rec.category;
+                      const isDup = String(rawCategory).toLowerCase().includes('uniqueness');
+                      const cardTitle = isDup ? 'Duplicate Record Problem' : `${getSimplifiedLabel(rawCategory)} Problem`;
+
+                      const currentReportKey = selectedReport?.report_id || selectedReport?.prediction_id || 'default';
+                      const cardKey = `${currentReportKey}-${idx}`;
+                      const isExpanded = expandedCardKeys.has(cardKey);
+
+                      const sheetOrPath = rec.logical_path || selectedReport.source_provenance?.logical_path || selectedReport.source_provenance?.sheet_name || 'Main Sheet';
+                      const physicalRow = rec.physical_row || selectedReport.source_provenance?.physical_row || rec.record_id || '1';
+                      const locationSummary = `${sheetOrPath} → Row ${physicalRow}`;
+
+                      return (
+                        <div key={idx} className="p-3 bg-white rounded border border-secondary border-opacity-25 shadow-sm overflow-hidden">
+                          <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                            <div className="d-flex align-items-center flex-wrap gap-2">
+                              <span className="badge bg-danger px-2 py-1">{rec.priority || 'HIGH'} PRIORITY</span>
+                              <span className="badge bg-secondary">{cardTitle}</span>
+                              {rec.field_name && (
+                                <span className="badge bg-light text-dark border text-wrap text-break">Field: {rec.field_name}</span>
+                              )}
+                            </div>
+                            
+                            <div className="d-flex flex-column align-items-end gap-1 ms-auto text-end">
+                              {rec.quantifiable !== false && rec.projected_overall_score !== undefined ? (
+                                <span className="small text-success fw-bold">
+                                  Quality Score if this problem is fixed: {rec.projected_overall_score} / 100
+                                </span>
+                              ) : (
+                                <span className="small text-muted fw-bold">
+                                  Impact: Recalculated after correction
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-success fw-bold py-1 px-2 mt-1"
+                                onClick={() => handleResolveFix(rec, idx)}
+                              >
+                                ✓ Resolve Problem
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 4-Part Problem Explanation (WHAT, WHERE, WHY, WHAT TO DO) */}
+                          <div className="bg-light p-2.5 rounded border border-secondary border-opacity-15 mb-2 small text-dark">
+                            <div className="mb-1">
+                              <strong className="text-danger small font-monospace">❓ WHAT: </strong>
+                              <span className="fw-bold">{rec.problem_what || cardTitle}</span>
+                            </div>
+                            <div className="mb-1">
+                              <strong className="text-primary small font-monospace">📍 WHERE: </strong>
+                              <span className="font-monospace text-secondary">{rec.problem_where || locationSummary}</span>
+                            </div>
+                            <div className="mb-1">
+                              <strong className="text-warning-emphasis small font-monospace">💡 WHY: </strong>
+                              <span className="text-dark">{rec.problem_why || rec.recommendation}</span>
+                            </div>
+                            <div>
+                              <strong className="text-success small font-monospace">🛠️ WHAT TO DO: </strong>
+                              <span className="fw-semibold text-dark">{rec.problem_action || rec.recommendation}</span>
+                            </div>
+                          </div>
+
+                          {/* Primary Compact Summary */}
+                          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top border-secondary border-opacity-10 small text-secondary">
+                            <div className="d-flex flex-wrap align-items-center gap-3">
+                              {rec.current_value && (
+                                <div><strong>Current value:</strong> <span className="badge bg-danger-subtle text-danger font-monospace">{rec.current_value}</span></div>
+                              )}
+                              <div><strong>Location:</strong> <span className="font-monospace text-dark">{locationSummary}</span></div>
+                            </div>
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-success fw-bold font-monospace py-1 px-2"
-                              onClick={() => handleResolveFix(rec, idx)}
+                              className="btn btn-sm btn-link text-decoration-none p-0 text-primary small fw-semibold"
+                              onClick={() => toggleCardExpand(cardKey)}
                             >
-                              ✓ Apply & Resolve Fix
+                              {isExpanded ? 'Hide details ▲' : 'View details ▾'}
                             </button>
                           </div>
-                        </div>
 
-                        <p className="small text-dark mb-2 fw-bold">{rec.recommendation}</p>
-
-                        <div className="d-flex flex-wrap align-items-center gap-3 pt-2 border-top border-secondary border-opacity-10 small text-secondary">
-                          <div><strong>Dataset / File:</strong> <span className="font-monospace text-dark">{rec.source_file || selectedReport.source_provenance?.source_file || 'Dataset File'}</span></div>
-                          <div><strong>Record Identifier:</strong> <span className="font-monospace text-dark">{rec.record_label || selectedReport.source_provenance?.record_label || 'Target Record'}</span></div>
-                          {rec.current_value && (
-                            <div><strong>Current Value:</strong> <span className="badge bg-danger-subtle text-danger font-monospace">{rec.current_value}</span></div>
+                          {/* Expandable Technical Details & Provenance */}
+                          {isExpanded && (
+                            <div className="mt-3 p-3 bg-light rounded border small text-dark font-monospace">
+                              <div className="row g-2 mb-2">
+                                <div className="col-12 col-md-6"><strong>File:</strong> {rec.source_file || selectedReport.source_provenance?.source_file || 'Dataset File'}</div>
+                                <div className="col-12 col-md-6"><strong>Sheet / Path:</strong> {sheetOrPath}</div>
+                                <div className="col-12 col-md-4"><strong>Physical Row:</strong> #{physicalRow}</div>
+                                <div className="col-12 col-md-4"><strong>Data Index:</strong> #{rec.data_index || selectedReport.source_provenance?.data_index || 'N/A'}</div>
+                                <div className="col-12 col-md-4"><strong>Record ID:</strong> {rec.record_label || selectedReport.source_provenance?.record_label || rec.record_id || 'N/A'}</div>
+                                <div className="col-12 col-md-6"><strong>Field Name:</strong> {rec.field_name || 'N/A'}</div>
+                                <div className="col-12 col-md-6"><strong>Current Value:</strong> {rec.current_value || 'N/A'}</div>
+                                <div className="col-12 col-md-6"><strong>Current Dimension Score:</strong> {rec.current_dimension_score !== undefined ? `${rec.current_dimension_score}%` : 'N/A'}</div>
+                              </div>
+                              {rec.full_explanation && (
+                                <div className="mt-2 pt-2 border-top border-secondary border-opacity-25">
+                                  <strong>Full Explanation:</strong>
+                                  <p className="mb-0 text-secondary font-sans-serif mt-1" style={{ fontSize: '0.8rem' }}>
+                                    {rec.full_explanation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-4 text-success small fw-bold">
-                    ✓ All data dimensions are fully optimal for this dataset. No corrections required. Quality score achieved: {overallScore?.toFixed(1)} / 100!
+                    ✓ No actionable corrections identified for this dataset. Quality score achieved: {overallScore?.toFixed(1)} / 100!
                   </div>
                 )}
               </div>
 
-              {/* Fully Working Technical Details & Execution Audit Accordion */}
+              {/* Technical Details & Execution Audit Accordion */}
               <div className="card border-0 bg-white border rounded-3 overflow-hidden">
                 <div
                   className="card-header bg-light p-3 cursor-pointer d-flex justify-content-between align-items-center"
                   onClick={() => setIsAuditOpen(!isAuditOpen)}
                   style={{ cursor: 'pointer', userSelect: 'none' }}
                 >
-                  <span className="fw-bold text-success font-monospace small">Technical Details & Execution Audit</span>
-                  <span className="badge bg-secondary font-monospace px-2 py-1">{isAuditOpen ? '▲ Hide Details' : '▼ Expand Audit'}</span>
+                  <span className="fw-bold text-secondary font-monospace small">Technical Details ▾</span>
+                  <span className="badge bg-secondary font-monospace px-2 py-1">{isAuditOpen ? '▲ Hide Details' : '▼ Expand Technical Audit'}</span>
                 </div>
                 {isAuditOpen && (
                   <div className="card-body font-monospace p-3 text-dark bg-white small border-top">
+                    {/* Dimension Weights & Calculations Table */}
+                    {selectedReport?.score_traceability?.applicable_dimensions && (
+                      <div className="mb-3">
+                        <span className="fw-bold text-dark d-block mb-2">Technical Dimension Weights & Formula Audit:</span>
+                        <div className="table-responsive">
+                          <table className="table table-sm table-bordered text-dark font-monospace mb-2" style={{ fontSize: '0.75rem' }}>
+                            <thead className="bg-light">
+                              <tr>
+                                <th>Dimension</th>
+                                <th>Raw Score</th>
+                                <th>Weight</th>
+                                <th>Weighted Contribution</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedReport.score_traceability.applicable_dimensions.map((dim, dIdx) => (
+                                <tr key={dIdx}>
+                                  <td>{dim.dimension}</td>
+                                  <td>{dim.score?.toFixed(1)}%</td>
+                                  <td>{dim.weight ? `${(dim.weight * 100).toFixed(1)}%` : 'N/A'}</td>
+                                  <td>{dim.contribution !== undefined ? `${dim.contribution.toFixed(2)} pts` : 'N/A'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="row g-2 mb-3 text-secondary">
                       <div className="col-6"><strong>Classifier Model:</strong> {selectedReport.processing_trace?.model_used || 'Random Forest / Rule Engine'}</div>
                       <div className="col-6"><strong>Prediction Class:</strong> {selectedReport.overall_prediction}</div>
                       <div className="col-6"><strong>Confidence Level:</strong> {(selectedReport.confidence_score * 100).toFixed(1)}%</div>
-                      <div className="col-6"><strong>Explanation Method:</strong> {selectedReport.explainer_name || 'EDQI Engine'}</div>
+                      <div className="col-6"><strong>SHAP Status:</strong> {selectedReport.shap_status || 'AVAILABLE'}</div>
                       <div className="col-6"><strong>Calculation Time:</strong> {selectedReport.processing_trace?.time_ms ?? 0.0} ms</div>
                     </div>
                     <hr className="my-2 border-secondary" />
@@ -701,6 +1105,7 @@ const DataQualityExplainability = () => {
                         processing_trace: selectedReport.processing_trace,
                         input_features: selectedReport.input_features,
                         source_provenance: selectedReport.source_provenance,
+                        models_applicability: selectedReport.models_applicability,
                         model_version: selectedReport.model_version
                       }, null, 2)}
                     </pre>

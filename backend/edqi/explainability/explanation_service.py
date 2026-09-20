@@ -116,31 +116,26 @@ class ExplanationService:
         else:
             fallback_used = True
 
-        # Run fallback directly if active model was missing or failed to run
+        # If SHAP is unavailable or active model is missing, record explicit status
         if fallback_used or not raw_attributions:
-            explainer = FallbackExplainer()
-            # Construct scaled inputs dummy for fallback
-            scaled_inputs = np.array([[float(clean_features.get(f, 0.0)) for f in EXPECTED_FEATURES]])
-            # Mock fit estimator
-            res = explainer.explain(None, scaled_inputs, EXPECTED_FEATURES, 0)
-            
-            raw_attributions = res["raw_shap_values"]
-            base_value = res["base_value"]
-            predicted_probability = res["predicted_probability"]
-            explainer_name = res["explainer_name"]
-            explainer_version = res["explainer_version"]
+            explainer_name = "None (SHAP Unavailable)"
+            explainer_version = "N/A"
+            raw_attributions = {}
+            base_value = 0.0
 
         explanation_duration = (time.time() - explanation_start) * 1000.0
 
         # 6. Feature Contribution ranking & normalization
-        att_results = FeatureContributionBuilder.process_contributions(raw_attributions)
+        att_results = FeatureContributionBuilder.process_contributions(raw_attributions) if raw_attributions else {
+            "top_positive_features": [], "top_negative_features": [], "normalized_shap_values": {}
+        }
         
         # 7. Generate human narratives
         summary = ExplanationBuilder.generate_human_explanation(
             prediction_record.predicted_grade,
-            att_results["top_positive_features"],
-            att_results["top_negative_features"]
-        )
+            att_results.get("top_positive_features", []),
+            att_results.get("top_negative_features", [])
+        ) if raw_attributions else f"Quality Grade assessed as {prediction_record.predicted_grade}. SHAP model explanation is unavailable because no active classifier model is loaded."
 
         # 8. Generate Quality recommendations fixes
         recommendation_start = time.time()
@@ -156,11 +151,7 @@ class ExplanationService:
             elif doc.metadata and doc.metadata.get("file", {}).get("original_name"):
                 source_file = doc.metadata.get("file", {}).get("original_name")
 
-        record_label = ""
-        if cdata.get("employee_id"):
-            record_label = f"Employee {cdata.get('employee_id')} ({cdata.get('name', 'N/A')})"
-        elif kr:
-            record_label = f"Record ID {kr.id}"
+        record_label = f"Record ID {kr.id}" if kr else "Target Record"
 
         recs_list = self.recommendation_engine.generate_recommendations(
             clean_features,
@@ -175,12 +166,6 @@ class ExplanationService:
         # 9. Database Persistence
         # Resolve associated model record
         model_obj = active_model if active_model else TrainedModel.objects.filter(status='ACTIVE').first()
-        if not model_obj:
-            # Create a mock TrainedModel placeholder if none active
-            model_obj = TrainedModel.objects.create(
-                model_name="MOCK_MODEL", algorithm="Random Forest", status="ACTIVE",
-                model_path="mock", pipeline_path="mock"
-            )
 
         report = ExplainabilityReport(
             prediction=prediction_record,
@@ -259,7 +244,7 @@ class ExplanationService:
             "predicted_probability": report.predicted_probability,
             "top_positive_features": report.top_positive_features,
             "top_negative_features": report.top_negative_features,
-            "absolute_importance": att_results["absolute_importance"],
+            "absolute_importance": att_results.get("absolute_importance", att_results.get("normalized_shap_values", {})),
             "raw_shap_values": report.raw_shap_values,
             "normalized_shap_values": report.normalized_shap_values,
             "recommendations": report.recommendations,

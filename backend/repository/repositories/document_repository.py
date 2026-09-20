@@ -1,6 +1,8 @@
 from django.core.exceptions import ObjectDoesNotExist
 from repository.models import KnowledgeDocument
 
+from django.db.models import Q
+
 class DocumentRepository:
     """
     Data access layer for operations on KnowledgeDocument.
@@ -29,7 +31,13 @@ class DocumentRepository:
         return KnowledgeDocument.objects.all()
 
     def list_active(self):
-        return KnowledgeDocument.objects.filter(repository_status='ACTIVE')
+        return KnowledgeDocument.objects.filter(
+            repository_status='ACTIVE'
+        ).filter(
+            Q(folder__isnull=True) | Q(folder__is_deleted=False)
+        ).exclude(
+            source_document__status__in=['deleted', 'DELETED', 'archived', 'FAILED']
+        )
 
     def create(self, **fields):
         return KnowledgeDocument.objects.create(**fields)
@@ -41,7 +49,5 @@ class DocumentRepository:
     def soft_delete(self, document_obj):
         document_obj.repository_status = 'DELETED'
         document_obj.save()
-        # Also clean up/soft delete associated records or keep them.
-        # Cascade soft-deletion:
-        document_obj.records.all().delete() # Or we can delete them since record tables grow large
+        # Preserve KnowledgeRecord instances for Employee Directory stability
         return document_obj

@@ -33,13 +33,26 @@ class DuplicateClassifier(BaseClassifier):
         threshold = self.config.get("similarity_threshold_duplicate", 0.95)
         sim = similarity_report.get("overall_similarity", 0.0)
         
+        has_contradiction = len(evidence.get("contradiction_terms", [])) > 0
+        has_numeric_diff = evidence.get("numeric_difference", 0.0) > 0.0
+        has_prop_diff = len(evidence.get("property_differences", [])) > 0
+        
+        # If there are property differences or contradictions, let ConflictClassifier handle it
+        if has_contradiction or has_numeric_diff or has_prop_diff:
+            return None
+
         if sim >= threshold:
+            dup_evidence = {
+                **evidence, 
+                "what_fact": "Duplicate Entry", 
+                "why_explanation": f"Record fields match exactly or are highly identical (similarity {sim:.2f})."
+            }
             return {
                 "conflict_type": "DUPLICATE",
                 "severity": "LOW",
                 "confidence": round(sim, 4),
                 "explanation": f"Texts match exactly or are highly similar (similarity: {sim:.2f} >= threshold: {threshold:.2f}).",
-                "evidence": evidence
+                "evidence": dup_evidence
             }
         return None
 
@@ -120,12 +133,17 @@ class ConsistencyClassifier(BaseClassifier):
         version_gap = evidence.get("version_difference", 0)
         
         if sim >= threshold and not has_contradiction and not has_numeric_diff and not has_prop_diff and version_gap == 0:
+            cons_evidence = {
+                **evidence, 
+                "what_fact": "Consistent Fact", 
+                "why_explanation": f"Information is consistent across documents (similarity: {sim:.2f})."
+            }
             return {
                 "conflict_type": "CONSISTENT",
                 "severity": "LOW",
                 "confidence": round(sim, 4),
                 "explanation": f"Information is consistent across documents (similarity: {sim:.2f}).",
-                "evidence": evidence
+                "evidence": cons_evidence
             }
         return None
 

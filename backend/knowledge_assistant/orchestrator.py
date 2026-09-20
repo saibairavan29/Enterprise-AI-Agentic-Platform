@@ -285,9 +285,13 @@ class DynamicKnowledgeOrchestrator:
         query_lower = query.lower()
 
         # 1. Detect Logical Repository Path (File or Folder) in query
-        path_match = re.search(r'\b(Team|Personal)/[a-zA-Z0-9_\-./\s]+\b', query, re.IGNORECASE)
+        path_match = re.search(r'\b((?:Team|Personal)/[^\n,?:;]+?\.(?:csv|xlsx|xls|pdf|docx|txt|json))\b', query, re.IGNORECASE)
+        if not path_match:
+            path_match = re.search(r'\b((?:Team|Personal)/[^\n,?:;]+)\b', query, re.IGNORECASE)
+
         if path_match:
             raw_path = path_match.group(0).strip()
+            raw_path = re.sub(r'[,?:;]+$', '', raw_path).strip()
             from repository.services.folder_service import FolderService
             folder_obj, doc_obj, err = FolderService.resolve_path(raw_path, user=user)
             if doc_obj:
@@ -455,6 +459,13 @@ class DynamicKnowledgeOrchestrator:
             target_word = m_which.group(1).strip()
             if target_word not in ["employee", "staff", "person", "one", "record", "file", "document", "sheet", "row", "observation"]:
                 group_by = target_word.capitalize()
+
+        if not group_by:
+            m_with = re.search(r'\b([a-z0-9_\-]+)\s+with\s+(?:the\s+)?(?:highest|greatest|maximum|top|lowest|minimum|most)\b', query_lower)
+            if m_with:
+                target_word = m_with.group(1).strip()
+                if target_word not in ["employee", "staff", "person", "one", "record", "file", "document", "sheet", "row", "observation"]:
+                    group_by = target_word.capitalize()
 
         if not group_by:
             m_by = re.search(r'\b(?:by|per|in each|for each)\s+([a-z0-9_\-]+)\b', query_lower)

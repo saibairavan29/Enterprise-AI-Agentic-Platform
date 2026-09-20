@@ -23,10 +23,33 @@ class CompletenessAnalyzer(BaseAnalyzer):
         issues = []
         recommendations = []
 
+        FIELD_ALIASES = {
+            "employee_id": ["empid", "emp_id", "employee_id", "id", "employeeid", "employee_name"],
+            "department": ["department", "dept", "deptid"],
+            "salary": ["salary", "pay", "annual_salary"],
+            "joining_date": ["dateofhire", "joining_date", "hire_date", "date_of_hire", "doj", "lastperformancereview_date"],
+            "email": ["email", "email_address", "work_email"]
+        }
+        
+        # Build lower map of record
+        rec_lower = {str(k).lower().replace("_", "").replace(" ", ""): v for k, v in record.items()}
+
         for f in required_fields:
-            val = record.get(f)
+            clean_f = str(f).lower().replace("_", "").replace(" ", "")
+            aliases = FIELD_ALIASES.get(clean_f, [clean_f])
+            
+            val = None
+            found_field = False
+            for alias in aliases:
+                if alias in rec_lower:
+                    found_field = True
+                    candidate = rec_lower[alias]
+                    if candidate is not None and str(candidate).strip() != "" and str(candidate).strip().lower() != "null":
+                        val = candidate
+                        break
+            
             # Check for null representation or empty strings
-            if val is None or str(val).strip() == "" or str(val).strip().lower() == "null":
+            if val is None and found_field:
                 missing_count += 1
                 
                 issue = {
@@ -40,7 +63,6 @@ class CompletenessAnalyzer(BaseAnalyzer):
                 }
                 issues.append(issue)
 
-                # Fetch suggestion fix from recommendation engine inside the service or direct here
                 from edqi.calculators.recommendations import RecommendationEngine
                 fix, conf = RecommendationEngine.generate_recommendation("MISSING_FIELD", f)
                 recommendations.append({

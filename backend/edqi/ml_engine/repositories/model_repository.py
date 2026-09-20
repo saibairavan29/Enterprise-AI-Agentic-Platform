@@ -39,16 +39,22 @@ class ModelRepository:
             MLLogger.error(msg)
             raise ModelRepositoryException(msg)
 
+    _model_cache = {}
+
     @classmethod
     def load_estimator(cls, file_path: str) -> object:
         """
-        Loads a saved model estimator using joblib.
+        Loads a saved model estimator using joblib, cached in memory after first load.
         """
+        if file_path in cls._model_cache:
+            return cls._model_cache[file_path]
+            
         if not os.path.exists(file_path):
             raise ModelRepositoryException(f"Estimator file not found at path: {file_path}")
         try:
             estimator = joblib.load(file_path)
-            MLLogger.info(f"Estimator successfully loaded from {file_path}")
+            cls._model_cache[file_path] = estimator
+            MLLogger.info(f"Estimator successfully loaded from {file_path} (cached in memory)")
             return estimator
         except Exception as e:
             msg = f"Failed to load estimator from {file_path}: {str(e)}"

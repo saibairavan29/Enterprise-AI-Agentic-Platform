@@ -17,6 +17,8 @@ class StatisticsBuilder:
             return {
                 "record_count": 0, "valid_count": 0, "invalid_count": 0,
                 "duplicate_count": 0, "missing_count": 0,
+                "excellent_count": 0, "good_count": 0,
+                "average_count": 0, "poor_count": 0,
                 "average_score": 0.0, "median_score": 0.0,
                 "min_score": 0.0, "max_score": 0.0, "standard_deviation": 0.0,
                 "grade_distribution": {}, "issue_distribution": {}

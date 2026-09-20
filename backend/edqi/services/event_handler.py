@@ -49,12 +49,25 @@ def handle_repository_sync_completed(sender, **kwargs):
         if not doc:
             raise ValueError(f"KnowledgeDocument for document_id {document_id} was not found.")
 
-        batch_service = BatchAssessmentService()
-        batch_service.assess_document_records(
-            document_id=doc.id,
-            pipeline_id=pipeline_id,
-            user_id=user_id
-        )
-        logger.info(f"Quality assessment completed for synchronized Document: {doc.id}")
+        import threading
+        
+        def _run_async_assessment(doc_id, p_id, u_id):
+            from django import db
+            db.connections.close_all()
+            try:
+                batch_service = BatchAssessmentService()
+                batch_service.assess_document_records(
+                    document_id=doc_id,
+                    pipeline_id=p_id,
+                    user_id=u_id
+                )
+                logger.info(f"Quality assessment completed asynchronously for Document: {doc_id}")
+            except Exception as ex:
+                logger.error(f"Error executing asynchronous EDQI quality assessment: {str(ex)}", exc_info=True)
+            finally:
+                db.connections.close_all()
+
+        threading.Thread(target=_run_async_assessment, args=(doc.id, pipeline_id, user_id), daemon=True).start()
+        logger.info(f"Dispatched background EDQI quality assessment for Document: {doc.id}")
     except Exception as e:
-        logger.error(f"Error executing EDQI quality assessment from signal: {str(e)}", exc_info=True)
+        logger.error(f"Error initializing EDQI quality assessment signal: {str(e)}", exc_info=True)

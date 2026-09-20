@@ -111,16 +111,36 @@ class KnowledgeDocumentViewSet(viewsets.ModelViewSet):
         user_role = getattr(user, 'role', 'reader').lower()
         
         # Admins can view everything
-        if user_role == 'admin':
-            return KnowledgeDocument.objects.exclude(repository_status='DELETED')
-            
-        # Non-admins: can view all team documents, and personal documents uploaded by themselves
-        from django.db.models import Q
-        return KnowledgeDocument.objects.exclude(repository_status='DELETED').filter(
-            Q(metadata__repository_type='team') | 
-            Q(metadata__repository_type__isnull=True) | 
-            Q(source_document__uploaded_by=user)
-        )
+        qs = KnowledgeDocument.objects.exclude(repository_status='DELETED')
+        if user_role != 'admin':
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(metadata__repository_type='team') | 
+                Q(metadata__repository_type__isnull=True) | 
+                Q(source_document__uploaded_by=user) |
+                Q(owner=user)
+            )
+
+        repo_type = self.request.query_params.get('repository_type')
+        if repo_type:
+            repo_type = repo_type.lower()
+            from django.db.models import Q
+            if repo_type == 'personal':
+                qs = qs.filter(
+                    Q(metadata__repository_type='personal') |
+                    Q(folder__repository_type='personal') |
+                    Q(logical_path__istartswith='Personal/') |
+                    Q(logical_path__icontains='/personal/')
+                )
+            elif repo_type == 'team':
+                qs = qs.exclude(
+                    Q(metadata__repository_type='personal') |
+                    Q(folder__repository_type='personal') |
+                    Q(logical_path__istartswith='Personal/') |
+                    Q(logical_path__icontains='/personal/')
+                )
+
+        return qs
 
     def list(self, request, *args, **kwargs):
         """
@@ -619,19 +639,34 @@ def infer_schema_from_rows(raw_records):
         return []
     
     key_set = []
+    seen_lower = set()
     for r in raw_records:
         if isinstance(r, dict):
             for k in r.keys():
-                if k not in key_set and k not in ['id', 'knowledge_document', 'created_at', 'updated_at']:
-                    key_set.append(k)
+                k_clean = str(k).strip()
+                k_lower = k_clean.lower()
+                if k_lower not in seen_lower and k_clean not in ['id', 'knowledge_document', 'created_at', 'updated_at']:
+                    seen_lower.add(k_lower)
+                    key_set.append(k_clean)
 
     schema_cols = []
     for key in key_set:
         label = key.replace('_', ' ').title().replace('Id', 'ID')
         col_type = 'text'
         
-        # Check sample values to infer type
-        sample_vals = [r.get(key) for r in raw_records if isinstance(r, dict) and r.get(key) is not None]
+        # Check sample values to infer type (case-insensitive lookup)
+        sample_vals = []
+        for r in raw_records:
+            if isinstance(r, dict):
+                v = r.get(key)
+                if v is None:
+                    for r_k, r_v in r.items():
+                        if str(r_k).strip().lower() == key.lower() and r_v is not None:
+                            v = r_v
+                            break
+                if v is not None:
+                    sample_vals.append(v)
+
         k_lower = key.lower()
 
         if any(isinstance(v, (int, float)) for v in sample_vals) or any(k in k_lower for k in ['salary', 'pay', 'exp', 'years', 'count', 'age', 'score', 'price']):
@@ -658,14 +693,40 @@ class EmployeeDirectoryViewSet(viewsets.ModelViewSet):
     serializer_class = SanitizedEmployeeRecordSerializer
 
     def get_queryset(self):
-        return KnowledgeRecord.objects.all().order_by('-id')
+        return KnowledgeRecord.objects.filter(
+            Q(knowledge_document__title__in=["Manual Record Directory", "Bulk Stack Add Record Directory"]) |
+            Q(knowledge_document__metadata__source="Stack Add Import") |
+            Q(knowledge_document__isnull=True)
+        ).filter(
+            Q(knowledge_document__isnull=True) | Q(knowledge_document__repository_status='ACTIVE')
+        ).order_by('-id')
 
     @action(detail=False, methods=['get'], url_path='schema')
     def get_schema(self, request, *args, **kwargs):
-        records = list(KnowledgeRecord.objects.all()[:100])
+        records = list(self.get_queryset()[:100])
         raw_rows = [r.canonical_data for r in records if r.canonical_data]
         schema = infer_schema_from_rows(raw_rows)
         return ResponseBuilder.success(data=schema, message="Directory schema fetched successfully.")
+
+    @action(detail=False, methods=['delete', 'post'], url_path='delete_all')
+    def delete_all(self, request, *args, **kwargs):
+        user_role = getattr(request.user, 'role', 'reader').lower()
+        if user_role != 'admin':
+            return ResponseBuilder.error(
+                errors=["Permission Denied"],
+                message="Only administrators can clear the record directory.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        count = KnowledgeRecord.objects.all().count()
+        KnowledgeRecord.objects.all().delete()
+        return ResponseBuilder.success(
+            data={"count": count},
+            message=f"Purged {count} records from directory successfully."
+        )
+
+    @action(detail=False, methods=['delete', 'post'], url_path='purge_all')
+    def purge_all(self, request, *args, **kwargs):
+        return self.delete_all(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         user_role = getattr(request.user, 'role', 'reader').lower()
@@ -1094,6 +1155,24 @@ class EmployeeDirectoryViewSet(viewsets.ModelViewSet):
             "deleted_count": count
         }, f"Stack Remove completed: {count} employee records removed.")
 
+    @action(detail=False, methods=['post', 'delete'], url_path='purge_all')
+    def purge_all(self, request, *args, **kwargs):
+        """
+        POST/DELETE /api/v1/repository/employees/purge_all/
+        Purges all employee records from the directory.
+        """
+        queryset = self.get_queryset()
+        count = queryset.count()
+        from edqi.models import EnterpriseDataQualityReport
+        EnterpriseDataQualityReport.objects.filter(knowledge_record__in=queryset).delete()
+        queryset.delete()
+
+        try:
+            from ekcd.graph_service import UniversalKnowledgeGraphService
+            UniversalKnowledgeGraphService().initialize_graph(force_rebuild=True)
+        except Exception:
+            pass
+
         return ResponseBuilder.success({
             "deleted_count": count
         }, f"All {count} employee records have been purged from the directory.")
@@ -1124,7 +1203,7 @@ class RepositoryFolderViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         name = request.data.get('name', '').strip()
         repo_type = request.data.get('repository_type', 'team')
-        parent_id = request.data.get('parent_id')
+        parent_id = request.data.get('parent_id') or request.data.get('parent')
         parent_path = request.data.get('parent_path', '')
 
         if not name:
@@ -1256,27 +1335,54 @@ class RepositoryExplorerView(APIView):
             docs_qs = docs_qs.filter(Q(title__icontains=search_query) | Q(logical_path__icontains=search_query))
         else:
             curr_folder = RepositoryFolder.objects.filter(is_deleted=False, logical_path__iexact=current_path).first()
-            if curr_folder:
-                folders_qs = folders_qs.filter(parent=curr_folder)
-                docs_qs = docs_qs.filter(Q(folder=curr_folder) | Q(logical_path__startswith=f"{current_path}/"))
-                direct_docs = []
-                for d in docs_qs:
-                    lpath = d.logical_path or f"{current_path}/{d.title}"
+            
+            # Resolve subfolders: Match parent OR logical_path starting with current_path/
+            all_candidate_folders = list(folders_qs.filter(Q(parent=curr_folder) | Q(logical_path__startswith=f"{current_path}/")))
+            direct_folders = []
+            seen_folder_ids = set()
+            for f in all_candidate_folders:
+                if f.id in seen_folder_ids:
+                    continue
+                if curr_folder and f.parent_id == curr_folder.id:
+                    direct_folders.append(f)
+                    seen_folder_ids.add(f.id)
+                else:
+                    lpath = f.logical_path or ""
                     if lpath.startswith(f"{current_path}/"):
                         rel = lpath[len(current_path):].strip('/')
-                        if '/' not in rel and rel:
-                            direct_docs.append(d)
-                docs_qs = direct_docs
-            else:
-                folders_qs = folders_qs.filter(parent__isnull=True)
-                root_docs = []
-                for d in docs_qs:
+                        if rel and '/' not in rel:
+                            direct_folders.append(f)
+                            seen_folder_ids.add(f.id)
+                    elif current_path in ['Team', 'Personal']:
+                        rel = lpath.replace('Team/', '').replace('Personal/', '').strip('/')
+                        if rel and '/' not in rel:
+                            direct_folders.append(f)
+                            seen_folder_ids.add(f.id)
+            folders_qs = direct_folders
+
+            # Resolve direct documents under current_path
+            all_candidate_docs = list(docs_qs.filter(Q(folder=curr_folder) | Q(logical_path__startswith=f"{current_path}/") | Q(logical_path__startswith=f"{root_prefix}/")))
+            direct_docs = []
+            seen_doc_ids = set()
+            for d in all_candidate_docs:
+                if d.id in seen_doc_ids:
+                    continue
+                if curr_folder and d.folder_id == curr_folder.id:
+                    direct_docs.append(d)
+                    seen_doc_ids.add(d.id)
+                else:
                     lpath = d.logical_path or f"{root_prefix}/{d.title}"
-                    if lpath.startswith(f"{root_prefix}/"):
+                    if lpath.startswith(f"{current_path}/"):
+                        rel = lpath[len(current_path):].strip('/')
+                        if rel and '/' not in rel:
+                            direct_docs.append(d)
+                            seen_doc_ids.add(d.id)
+                    elif current_path in ['Team', 'Personal'] and lpath.startswith(f"{root_prefix}/"):
                         rel = lpath[len(root_prefix):].strip('/')
-                        if '/' not in rel and rel:
-                            root_docs.append(d)
-                docs_qs = root_docs
+                        if rel and '/' not in rel:
+                            direct_docs.append(d)
+                            seen_doc_ids.add(d.id)
+            docs_qs = direct_docs
 
         if file_type_filter and file_type_filter.lower() != 'all':
             if isinstance(docs_qs, list):

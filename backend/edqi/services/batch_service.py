@@ -116,25 +116,30 @@ class BatchAssessmentService:
         pred_service = PredictionService()
         explain_service = ExplanationService()
         
-        for rec in records:
+        from django.db import connections
+        for idx, rec in enumerate(records):
+            if idx > 0 and idx % 10 == 0:
+                connections.close_all()
+                time.sleep(0.005)
             try:
                 report, issues = self.assessment_service.assess_record(rec, context)
                 reports.append(report)
                 batch_issues.extend(issues)
                 
-                # Automatically compile ML Prediction and XAI SHAP Report
-                try:
-                    ml_feats = report.ml_ready_features
-                    pred_service.predict_record_quality(rec.id, ml_feats)
-                    
-                    # Fetch prediction record to resolve prediction_id UUID
-                    from edqi.ml_engine.models import PredictionHistory
-                    pred_record = PredictionHistory.objects.filter(knowledge_record=rec).order_by('-created_at').first()
-                    
-                    if pred_record and pred_record.prediction_id:
-                        explain_service.get_explanation_for_prediction(str(pred_record.prediction_id))
-                except Exception as ex:
-                    logger.error(f"ML/XAI generation failed for record {rec.id}: {str(ex)}", exc_info=True)
+                # Automatically compile ML Prediction and XAI SHAP Report (for top 100 records per document)
+                if idx < 100:
+                    try:
+                        ml_feats = report.ml_ready_features
+                        pred_service.predict_record_quality(rec.id, ml_feats)
+                        
+                        # Fetch prediction record to resolve prediction_id UUID
+                        from edqi.ml_engine.models import PredictionHistory
+                        pred_record = PredictionHistory.objects.filter(knowledge_record=rec).order_by('-created_at').first()
+                        
+                        if pred_record and pred_record.prediction_id:
+                            explain_service.get_explanation_for_prediction(str(pred_record.prediction_id))
+                    except Exception as ex:
+                        logger.error(f"ML/XAI generation failed for record {rec.id}: {str(ex)}", exc_info=True)
                     
             except Exception as e:
                 logger.error(f"Failed to assess record {rec.id}: {str(e)}", exc_info=True)

@@ -53,9 +53,43 @@ class CandidateOrchestrationService:
         config = RulesLoader.load_rules()
         CandidateValidator.validate_rules_config(config)
         
-        # 2. Fetch registry documents and records
-        docs = list(self.doc_repo.list_active())
-        records = list(KnowledgeRecord.objects.all())
+        from django.db.models import Q
+        from common.unified_file_extractor import UnifiedFileExtractor
+        from ..models import KnowledgeConflict, KnowledgeCandidate
+        
+        # 2. Fetch registry documents and records (Strictly active repository objects with existing physical files)
+        raw_docs = list(self.doc_repo.list_active())
+        docs = []
+        for d in raw_docs:
+            if d.repository_status == 'ACTIVE' and (not d.folder or not d.folder.is_deleted):
+                resolved_p = UnifiedFileExtractor.resolve_physical_file_path(d)
+                if resolved_p:
+                    docs.append(d)
+                    
+        active_doc_ids = set(str(d.id) for d in docs)
+        
+        # Purge stale candidates and conflicts referencing deleted/missing files or previous un-processed runs
+        KnowledgeCandidate.objects.filter(status='GENERATED').delete()
+        
+        KnowledgeCandidate.objects.exclude(
+            source_document_id__in=active_doc_ids
+        ).exclude(
+            target_document_id__in=active_doc_ids
+        ).delete()
+        
+        KnowledgeConflict.objects.exclude(
+            source_document_id__in=active_doc_ids
+        ).exclude(
+            target_document_id__in=active_doc_ids
+        ).delete()
+        
+        records = list(KnowledgeRecord.objects.filter(
+            knowledge_document__repository_status='ACTIVE'
+        ).filter(
+            Q(knowledge_document__folder__isnull=True) | Q(knowledge_document__folder__is_deleted=False)
+        ).exclude(
+            knowledge_document__source_document__status__in=['deleted', 'archived', 'DELETED']
+        ))
         CandidateValidator.validate_generation_inputs(docs, records)
         
         logger.info(f"[Batch: {batch_id}] Beginning candidate generation for {len(docs)} documents and {len(records)} records.")
@@ -117,10 +151,10 @@ class CandidateOrchestrationService:
         # 5. Run CandidateDeduplicator using fingerprints
         deduplicated, duplicates_removed = CandidateDeduplicator.deduplicate(raw_candidates)
         
-        # Limit comparison counts if configured
-        max_limit = config.get("max_comparisons", 10000)
+        # Limit comparison counts for fast interactive scanning
+        max_limit = config.get("max_comparisons", 500)
         if len(deduplicated) > max_limit:
-            logger.warning(f"Generated candidates count ({len(deduplicated)}) exceeds max_limit ({max_limit}). Truncating list.")
+            logger.info(f"Generated candidates count ({len(deduplicated)}) exceeds max_limit ({max_limit}). Capping to top {max_limit} pairs.")
             deduplicated = deduplicated[:max_limit]
             
         # 6. Build and persist candidates inside transaction boundaries

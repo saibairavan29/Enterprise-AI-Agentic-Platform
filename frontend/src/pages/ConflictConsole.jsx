@@ -51,7 +51,7 @@ const ConflictConsole = () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await client.get('conflicts/');
+      const res = await client.get('conflicts/?limit=200');
       if (res.data && res.data.success) {
         setConflicts(res.data.data);
       }
@@ -173,23 +173,71 @@ const ConflictConsole = () => {
     }
   };
 
+  // Selected Pair state
+  const [selectedPair, setSelectedPair] = useState(null);
+  const [selectedConflictIndex, setSelectedConflictIndex] = useState(0);
+
   useEffect(() => {
     fetchConflicts();
     fetchStats();
   }, []);
 
-  // Filter logic
-  const filteredConflicts = conflicts.filter(c => {
-    const matchesSearch = 
-      c.source_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.target_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.conflict_type?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Group conflicts by Document Pair (Source Document vs Target Document)
+  const groupedPairs = React.useMemo(() => {
+    const map = new Map();
+    conflicts.forEach(c => {
+      const srcTitle = c.source_title || 'Document A';
+      const tgtTitle = c.target_title || 'Document B';
+      const key = [srcTitle, tgtTitle].sort().join(' ___ ');
       
-    const matchesSeverity = severityFilter === 'ALL' || c.severity === severityFilter;
-    const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
+      if (!map.has(key)) {
+        map.set(key, {
+          pairKey: key,
+          source_title: srcTitle,
+          target_title: tgtTitle,
+          conflicts: [],
+          conflictTypes: new Set(),
+          maxSimilarity: 0,
+          maxConfidence: 0,
+          criticalCount: 0,
+          pendingCount: 0,
+          status: 'NEW'
+        });
+      }
+      
+      const grp = map.get(key);
+      grp.conflicts.push(c);
+      grp.conflictTypes.add(c.conflict_type);
+      if (c.overall_similarity > grp.maxSimilarity) grp.maxSimilarity = c.overall_similarity;
+      if (c.confidence_score > grp.maxConfidence) grp.maxConfidence = c.confidence_score;
+      if (c.severity === 'CRITICAL') grp.criticalCount += 1;
+      if (c.status === 'REVIEW_PENDING' || c.status === 'NEW') grp.pendingCount += 1;
+    });
+    
+    // Sort document pairs by highest similarity score descending
+    return Array.from(map.values()).sort((a, b) => b.maxSimilarity - a.maxSimilarity);
+  }, [conflicts]);
+
+  // Filter logic across grouped pairs
+  const filteredPairs = groupedPairs.filter(grp => {
+    const matchesSearch = 
+      grp.source_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      grp.target_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      Array.from(grp.conflictTypes).some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+    const matchesSeverity = severityFilter === 'ALL' || (severityFilter === 'CRITICAL' && grp.criticalCount > 0);
+    const matchesStatus = statusFilter === 'ALL' || grp.conflicts.some(c => c.status === statusFilter);
     
     return matchesSearch && matchesSeverity && matchesStatus;
   });
+
+  const selectPair = (pair, itemIndex = 0) => {
+    setSelectedPair(pair);
+    setSelectedConflictIndex(itemIndex);
+    if (pair && pair.conflicts[itemIndex]) {
+      selectConflict(pair.conflicts[itemIndex]);
+    }
+  };
 
   const parseFields = (text) => {
     if (!text) return {};
@@ -250,22 +298,123 @@ const ConflictConsole = () => {
     );
   };
 
-  const renderFlagReason = (conflict) => {
-    const srcFields = parseFields(conflict.source_text);
-    const idKey = Object.keys(srcFields).find(k => k.toLowerCase().includes('id'));
-    const idVal = idKey ? srcFields[idKey] : '';
+  const renderEvidenceBreakdown = (conflict) => {
+    const similarityPct = `${(conflict.overall_similarity * 100).toFixed(0)}%`;
+    const matchScope = conflict.evidence?.match_scope || 'Full Content';
+    
+    const srcLocation = conflict.evidence?.source_provenance?.location_str 
+      || conflict.evidence?.source_a_details?.location 
+      || conflict.source_title;
+    const tgtLocation = conflict.evidence?.target_provenance?.location_str 
+      || conflict.evidence?.source_b_details?.location 
+      || conflict.target_title;
+
+    const isVersionUpdate = conflict.evidence?.is_version_update;
+    const versionSummary = conflict.evidence?.version_change_summary;
+    const variancePoints = conflict.evidence?.variance_points || [];
+
+    const sim = conflict.overall_similarity;
+    const src = conflict.source_record || {};
+    const tgt = conflict.target_record || {};
+    const keys = Array.from(new Set([...Object.keys(src), ...Object.keys(tgt)]));
+    const recDiffCount = keys.filter(k => k !== 'notes' && String(src[k] ?? '').trim().toLowerCase() !== String(tgt[k] ?? '').trim().toLowerCase()).length;
+    
+    const hasConflictingFacts = (conflict.evidence?.conflicting_facts?.length || 0) > 0 || variancePoints.length > 0;
+    const textDiff = (conflict.source_text && conflict.target_text && conflict.source_text.trim().toLowerCase() !== conflict.target_text.trim().toLowerCase());
+    
+    const hasDifferences = recDiffCount > 0 || hasConflictingFacts || textDiff;
+    const diffCount = variancePoints.length || recDiffCount || conflict.evidence?.conflicting_facts?.length || (textDiff ? 1 : 0);
+
+    let reviewDecision = '';
+    let decisionBadge = '';
+
+    if (sim < 0.40) {
+      reviewDecision = 'No meaningful matching content detected.';
+      decisionBadge = 'LOW SIMILARITY / UNRELATED';
+    } else if (hasDifferences) {
+      reviewDecision = 'Material differences were detected. Review the changed fields before approval.';
+      decisionBadge = 'SIMILAR WITH MATERIAL DIFFERENCE';
+    } else {
+      reviewDecision = 'Content is identical. Eligible for approval review.';
+      decisionBadge = 'IDENTICAL CONTENT';
+    }
+
+    const diffSummary = hasDifferences 
+      ? `${diffCount} difference(s) detected.` 
+      : 'None';
 
     return (
-      <div className="card border-warning bg-warning bg-opacity-10 mb-3 text-dark">
+      <div className="card border-primary bg-primary bg-opacity-10 mb-3 text-dark">
         <div className="card-body p-3">
-          <h6 className="card-title fw-bold text-warning-emphasis mb-2">Why was this flagged?</h6>
-          <p className="card-text small mb-0">
-            {idVal ? (
-              `The same identifier (${idVal}) was found in both records, but the details in the uploaded file conflict with the database.`
-            ) : (
-              "The system matched these records but found conflicting field values."
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h6 className="card-title fw-bold text-primary-emphasis mb-0">Similarity Evidence Breakdown</h6>
+            <span className="badge bg-primary font-monospace" style={{ fontSize: '0.7rem' }}>
+              Similarity: {similarityPct} | Scope: {matchScope}
+            </span>
+          </div>
+
+          {isVersionUpdate && (
+            <div className="alert alert-warning border border-warning text-dark p-2 mb-2 small fw-semibold font-monospace">
+              ℹ️ {versionSummary || "Version revision update detected between these compared files."}
+            </div>
+          )}
+          
+          <div className="mb-2">
+            <strong className="text-primary small font-monospace d-block">📍 WHERE (File Provenance & Location):</strong>
+            <div className="small text-secondary ps-2">
+              <div>• <strong>Uploaded File:</strong> {srcLocation}</div>
+              <div>• <strong>Current File:</strong> {tgtLocation}</div>
+            </div>
+          </div>
+          
+          <div className="mb-2">
+            <strong className="text-primary small font-monospace d-block">🔍 DIFFERENCES FOUND:</strong>
+            <div className="small text-dark ps-2 fw-semibold mb-1">
+              {diffSummary}
+            </div>
+
+            {variancePoints.length > 0 && (
+              <div className="mt-2">
+                <div className="small text-uppercase font-monospace fw-bold text-muted mb-1" style={{ fontSize: '0.7rem' }}>
+                  Points of Variance ({variancePoints.length}):
+                </div>
+                <div className="d-flex flex-column gap-2">
+                  {variancePoints.map((vp, i) => (
+                    <div key={i} className="card bg-white border border-secondary p-2 rounded shadow-sm">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="fw-bold text-dark font-monospace small">{vp.point_name}</span>
+                        <span className={`badge ${vp.variance_type?.includes('Version') ? 'bg-info text-dark' : 'bg-danger'} font-monospace`} style={{ fontSize: '0.65rem' }}>
+                          {vp.variance_type}
+                        </span>
+                      </div>
+                      <div className="row g-1 small font-monospace">
+                        <div className="col-6">
+                          <div className="text-muted" style={{ fontSize: '0.65rem' }}>Uploaded Value ({vp.source_a_location || 'Uploaded'})</div>
+                          <div className="text-danger fw-bold text-break">{vp.source_a_value || 'None'}</div>
+                        </div>
+                        <div className="col-6">
+                          <div className="text-muted" style={{ fontSize: '0.65rem' }}>Current Value ({vp.source_b_location || 'Current'})</div>
+                          <div className="text-success fw-bold text-break">{vp.source_b_value || 'None'}</div>
+                        </div>
+                      </div>
+                      {vp.impact_note && (
+                        <div className="text-secondary mt-1 text-muted" style={{ fontSize: '0.65rem' }}>
+                          {vp.impact_note}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-          </p>
+          </div>
+          
+          <div className="mt-2">
+            <strong className="text-primary small font-monospace d-block">💡 REVIEW DECISION ({decisionBadge}):</strong>
+            <div className="small text-dark ps-2 fw-semibold text-primary-emphasis">
+              "{reviewDecision}"
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -275,8 +424,8 @@ const ConflictConsole = () => {
     <div className="container-fluid p-0 bg-light text-dark">
       <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary">
         <div>
-          <h3 className="fw-bold text-success mb-1">Check Data Conflicts</h3>
-          <p className="text-secondary small mb-0">Review and resolve differences between newly uploaded files and database records.</p>
+          <h3 className="fw-bold text-success mb-1">Check Data Similarity</h3>
+          <p className="text-secondary small mb-0">Review and compare similarities between newly uploaded files and database records.</p>
         </div>
         <button 
           className="btn btn-success py-2 px-4 fw-bold font-monospace"
@@ -288,7 +437,7 @@ const ConflictConsole = () => {
               <span className="spinner-border spinner-border-sm me-2"></span>
               Scanning...
             </>
-          ) : 'Scan for Conflicts'}
+          ) : 'Scan for Similarities'}
         </button>
       </div>
 
@@ -299,7 +448,7 @@ const ConflictConsole = () => {
       <div className="row g-3 mb-4">
         <div className="col-6 col-md-4 col-lg-2">
           <div className="card border-0 shadow-sm p-3 text-center text-md-start h-100 bg-white">
-            <span className="text-secondary small font-monospace">Total Issues</span>
+            <span className="text-secondary small font-monospace">Total Similarities</span>
             <h3 className="fw-bold text-dark mb-0 mt-1">{stats.total_conflicts}</h3>
           </div>
         </div>
@@ -311,13 +460,13 @@ const ConflictConsole = () => {
         </div>
         <div className="col-6 col-md-4 col-lg-2">
           <div className="card border-0 shadow-sm p-3 text-center text-md-start h-100 bg-white" style={{ borderLeft: '3px solid #dc3545' }}>
-            <span className="text-danger small font-monospace">Critical Issues</span>
+            <span className="text-danger small font-monospace">High Priority</span>
             <h3 className="fw-bold text-dark mb-0 mt-1">{stats.critical_conflicts}</h3>
           </div>
         </div>
         <div className="col-6 col-md-4 col-lg-2">
           <div className="card border-0 shadow-sm p-3 text-center text-md-start h-100 bg-white" style={{ borderLeft: '3px solid #198754' }}>
-            <span className="text-success small font-monospace">Resolved</span>
+            <span className="text-success small font-monospace">Verified</span>
             <h3 className="fw-bold text-dark mb-0 mt-1">{stats.resolved_conflicts}</h3>
           </div>
         </div>
@@ -339,7 +488,7 @@ const ConflictConsole = () => {
         {/* Registry Table List Column */}
         <div className="col-12 col-lg-7">
           <div className="card border-0 shadow-sm p-4 bg-white text-dark">
-            <h5 className="fw-bold text-dark mb-3">Detected Conflicts</h5>
+            <h5 className="fw-bold text-dark mb-3">Detected Similarities</h5>
 
             {/* Filters */}
             <div className="row g-2 mb-3">
@@ -385,46 +534,42 @@ const ConflictConsole = () => {
             {loading ? (
               <div className="text-center py-5 text-secondary">
                 <span className="spinner-border spinner-border-sm me-2"></span>
-                Loading conflicts...
+                Loading similarities...
               </div>
-            ) : filteredConflicts.length > 0 ? (
+            ) : filteredPairs.length > 0 ? (
               <div className="table-responsive">
                 <table className="table table-striped table-hover align-middle mb-0 text-dark">
-                  <thead className="table-light text-secondary font-monospace" style={{ fontSize: '0.8rem' }}>
+                  <thead className="table-light text-secondary font-monospace" style={{ fontSize: '0.75rem' }}>
                     <tr>
                       <th>Type</th>
-                      <th>Records Compare</th>
-                      <th>Severity</th>
-                      <th>Similarity</th>
+                      <th>Files / Documents</th>
+                      <th>Similarity %</th>
+                      <th>Conflict Items</th>
+                      <th>Confidence</th>
                       <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredConflicts.map((c) => (
+                    {filteredPairs.map((pair) => (
                       <tr 
-                        key={c.id} 
-                        onClick={() => selectConflict(c)}
+                        key={pair.pairKey} 
+                        onClick={() => selectPair(pair, 0)}
                         style={{ cursor: 'pointer' }}
-                        className={selectedConflict?.id === c.id ? 'table-active' : ''}
+                        className={selectedPair?.pairKey === pair.pairKey ? 'table-active' : ''}
                       >
-                        <td className="font-monospace text-success fw-bold small">{c.conflict_type}</td>
-                        <td className="small text-truncate" style={{ maxWidth: '220px' }}>
-                          <div className="fw-semibold text-dark">{c.source_title}</div>
-                          <div className="text-muted" style={{ fontSize: '0.75rem' }}>vs {c.target_title}</div>
+                        <td className="font-monospace text-success fw-bold small">CONFLICTING</td>
+                        <td className="small text-truncate" style={{ maxWidth: '180px' }}>
+                          <div className="fw-semibold text-dark">{pair.source_title}</div>
+                          <div className="text-muted" style={{ fontSize: '0.75rem' }}>vs {pair.target_title}</div>
                         </td>
-                        <td>
-                          <span className={`badge ${
-                            c.severity === 'CRITICAL' ? 'bg-danger font-monospace' :
-                            c.severity === 'HIGH' ? 'bg-warning text-dark font-monospace' :
-                            c.severity === 'MEDIUM' ? 'bg-info text-dark font-monospace' : 'bg-secondary font-monospace'
-                          }`} style={{ fontSize: '0.65rem' }}>
-                            {c.severity}
-                          </span>
+                        <td className="font-monospace fw-bold text-dark">{(pair.maxSimilarity * 100).toFixed(0)}%</td>
+                        <td className="font-monospace text-primary fw-bold small">
+                          {pair.conflicts.length} Conflict Item{pair.conflicts.length > 1 ? 's' : ''}
                         </td>
-                        <td className="font-monospace fw-bold text-dark">{(c.overall_similarity * 100).toFixed(0)}%</td>
+                        <td className="font-monospace text-dark">{(pair.maxConfidence * 100).toFixed(0)}%</td>
                         <td>
                           <span className="badge bg-light border border-secondary text-secondary" style={{ fontSize: '0.65rem' }}>
-                            {c.status === 'REVIEW_PENDING' ? 'Needs Review' : c.status}
+                            {pair.pendingCount > 0 ? 'Needs Review' : 'Verified'}
                           </span>
                         </td>
                       </tr>
@@ -434,7 +579,7 @@ const ConflictConsole = () => {
               </div>
             ) : (
               <div className="text-center py-5 text-muted small">
-                No conflicts matched active filter parameters.
+                No similarities matched active filter parameters.
               </div>
             )}
           </div>
@@ -447,15 +592,40 @@ const ConflictConsole = () => {
               <div>
                 <div className="d-flex justify-content-between align-items-start pb-3 border-bottom border-secondary mb-3">
                   <div>
-                    <h5 className="fw-bold text-dark mb-1">How should we fix it?</h5>
+                    <h5 className="fw-bold text-dark mb-1">
+                      {selectedPair ? `${selectedPair.source_title} vs ${selectedPair.target_title}` : 'Similarity Details'}
+                    </h5>
                     <span className="text-muted font-monospace small" style={{ fontSize: '0.7rem' }}>
-                      ID: {selectedConflict.conflict_id.substring(0, 8)}
+                      ID: {selectedConflict.conflict_id.substring(0, 8)} | Strategy: {selectedConflict.strategy_used || 'Universal'}
                     </span>
                   </div>
                   <span className="badge bg-success px-3 py-1 font-monospace" style={{ fontSize: '0.7rem' }}>
-                    SIMILARITY: {(selectedConflict.confidence_score * 100).toFixed(0)}%
+                    CONFIDENCE: {(selectedConflict.confidence_score * 100).toFixed(0)}%
                   </span>
                 </div>
+
+                {/* Conflict Item Selector Tabs for multi-item file pairs */}
+                {selectedPair && selectedPair.conflicts.length > 1 && (
+                  <div className="mb-3 bg-light p-2 rounded border border-secondary">
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="text-primary font-monospace small fw-bold">
+                        Conflict Items Breakdown ({selectedPair.conflicts.length} Total)
+                      </span>
+                    </div>
+                    <div className="d-flex flex-wrap gap-1 overflow-auto" style={{ maxHeight: '80px' }}>
+                      {selectedPair.conflicts.map((item, idx) => (
+                        <button
+                          key={item.id || idx}
+                          className={`btn btn-sm font-monospace py-1 px-2 ${selectedConflictIndex === idx ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary text-dark'}`}
+                          onClick={() => selectPair(selectedPair, idx)}
+                          style={{ fontSize: '0.7rem' }}
+                        >
+                          Conflict #{idx + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Review Timeline Milestone progress */}
                 <div className="mb-4 bg-light rounded p-3 border border-secondary">
@@ -488,8 +658,8 @@ const ConflictConsole = () => {
                   </div>
                 </div>
 
-                {/* Why Flagged Explanation */}
-                {renderFlagReason(selectedConflict)}
+                {/* Evidence Breakdown Card (WHERE + WHAT + WHY) */}
+                {renderEvidenceBreakdown(selectedConflict)}
 
                 {/* Data Integrity check */}
                 {(() => {
@@ -585,32 +755,24 @@ const ConflictConsole = () => {
                     }
                   });
 
-                  if (diffs.length === 0 && selectedConflict.source_text && selectedConflict.target_text) {
-                    const parseKv = (txt) => {
-                      const kv = {};
-                      (txt || '').split('|').forEach(part => {
-                        if (part.includes(':')) {
-                          const [k, v] = part.split(':', 2);
-                          kv[k.trim()] = v.trim();
-                        }
+                  if (diffs.length === 0 && selectedConflict.evidence?.conflicting_facts?.length > 0) {
+                    selectedConflict.evidence.conflicting_facts.forEach(cf => {
+                      diffs.push({
+                        field: (cf.fact_name || 'DOCUMENT CONTENT').toUpperCase(),
+                        src: cf.source_a_value || 'N/A',
+                        tgt: cf.source_b_value || 'N/A'
                       });
-                      return kv;
-                    };
-                    const kv1 = parseKv(selectedConflict.source_text);
-                    const kv2 = parseKv(selectedConflict.target_text);
-                    const kvKeys = Array.from(new Set([...Object.keys(kv1), ...Object.keys(kv2)]));
-                    kvKeys.forEach(k => {
-                      if (k.toLowerCase() === 'entity type') return;
-                      const v1 = kv1[k] || '';
-                      const v2 = kv2[k] || '';
-                      if (v1.toLowerCase() !== v2.toLowerCase()) {
-                        diffs.push({
-                          field: k.toUpperCase(),
-                          src: kv1[k] || 'N/A',
-                          tgt: kv2[k] || 'N/A'
-                        });
-                      }
                     });
+                  }
+
+                  if (diffs.length === 0 && selectedConflict.source_text && selectedConflict.target_text) {
+                    if (selectedConflict.source_text.trim().toLowerCase() !== selectedConflict.target_text.trim().toLowerCase()) {
+                      diffs.push({
+                        field: 'DOCUMENT CONTENT',
+                        src: selectedConflict.source_text.trim(),
+                        tgt: selectedConflict.target_text.trim()
+                      });
+                    }
                   }
 
                   if (diffs.length > 0) {

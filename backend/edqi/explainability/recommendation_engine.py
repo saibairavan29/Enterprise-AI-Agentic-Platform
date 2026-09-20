@@ -51,7 +51,7 @@ class RecommendationEngine:
         recommendations = []
         cdata = canonical_data or {}
         file_name = source_file or "Ingested Dataset File"
-        rec_label = record_label or (f"Employee {cdata.get('employee_id')}" if cdata.get('employee_id') else "Target Record")
+        rec_label = record_label or (f"Record {cdata.get('id')}" if cdata.get('id') else "Target Record")
 
         from edqi.rules.rules_loader import QualityRulesLoader
         rules = QualityRulesLoader.load_rules()
@@ -66,53 +66,77 @@ class RecommendationEngine:
         if sum_weights <= 0.0:
             sum_weights = 1.0
 
-        # Check Specific Field Violations in canonical_data
-        # 1. Salary bound check
-        salary_val = cdata.get('salary')
-        if salary_val is not None:
-            try:
-                num_salary = float(salary_val)
-                if num_salary < 0:
-                    recommendations.append({
-                        "recommendation_type": "INVALID_NUMERIC_RANGE",
-                        "category": "Validity",
-                        "priority": "HIGH",
-                        "priority_score": 90.0,
-                        "field_name": "salary",
-                        "current_value": str(salary_val),
-                        "source_file": file_name,
-                        "record_label": rec_label,
-                        "recommendation": f"Correct negative salary value (${num_salary:,.2f}) in file '{file_name}' for {rec_label} (Target Field: salary).",
-                        "expected_improvement": 15.0,
-                        "recommendation_confidence": 98.0
-                    })
-            except Exception:
-                pass
+        from edqi.calculators.quality_score import QualityScoreCalculator
+
+        # Check Specific Field Violations generically in canonical_data
+        # 1. Numeric negative bound check for numeric fields
+        for k, val in cdata.items():
+            if val is not None and isinstance(val, (int, float, str)):
+                try:
+                    num_val = float(str(val).replace('$', '').replace(',', '').strip())
+                    if num_val < 0 and ("price" in k.lower() or "cost" in k.lower() or "amount" in k.lower() or "val" in k.lower() or "num" in k.lower() or "score" in k.lower()):
+                        impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=5.0, issue_count=1, file_category="tabular", rules=rules)
+                        recommendations.append({
+                            "recommendation_type": "INVALID_NUMERIC_RANGE",
+                            "category": "Validity",
+                            "priority": "HIGH",
+                            "priority_score": 90.0,
+                            "field_name": k,
+                            "current_value": str(val),
+                            "source_file": file_name,
+                            "record_label": rec_label,
+                            "recommendation": f"Correct negative numeric value ({num_val}) in file '{file_name}' for {rec_label} (Target Field: {k}).",
+                            "expected_improvement": impact["overall_score_impact"],
+                            "affected_dimension": impact["affected_dimension"],
+                            "current_dimension_score": impact["current_dimension_score"],
+                            "projected_dimension_score": impact["projected_dimension_score"],
+                            "dimension_improvement": impact["dimension_improvement"],
+                            "dimension_weight": impact["dimension_weight"],
+                            "overall_score_impact": impact["overall_score_impact"],
+                            "current_overall_score": impact["current_overall_score"],
+                            "projected_overall_score": impact["projected_overall_score"],
+                            "quantifiable": True,
+                            "recommendation_confidence": 98.0
+                        })
+                except Exception:
+                    pass
 
         # 2. Email format check
-        email_val = cdata.get('email', '')
-        if email_val and ('@' not in str(email_val) or '.' not in str(email_val) or '_invalid' in str(email_val)):
-            recommendations.append({
-                "recommendation_type": "INVALID_EMAIL_FORMAT",
-                "category": "Validity",
-                "priority": "HIGH",
-                "priority_score": 88.0,
-                "field_name": "email",
-                "current_value": str(email_val),
-                "source_file": file_name,
-                "record_label": rec_label,
-                "recommendation": f"Fix invalid email format '{email_val}' in file '{file_name}' for {rec_label} (Target Field: email).",
-                "expected_improvement": 12.0,
-                "recommendation_confidence": 95.0
-            })
+        for k, val in cdata.items():
+            if "email" in k.lower() and val:
+                email_str = str(val).strip()
+                if '@' not in email_str or '.' not in email_str or '_invalid' in email_str:
+                    impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=5.0, issue_count=1, file_category="tabular", rules=rules)
+                    recommendations.append({
+                        "recommendation_type": "INVALID_EMAIL_FORMAT",
+                        "category": "Validity",
+                        "priority": "HIGH",
+                        "priority_score": 88.0,
+                        "field_name": k,
+                        "current_value": email_str,
+                        "source_file": file_name,
+                        "record_label": rec_label,
+                        "recommendation": f"Fix invalid email format '{email_str}' in file '{file_name}' for {rec_label} (Target Field: {k}).",
+                        "expected_improvement": impact["overall_score_impact"],
+                        "affected_dimension": impact["affected_dimension"],
+                        "current_dimension_score": impact["current_dimension_score"],
+                        "projected_dimension_score": impact["projected_dimension_score"],
+                        "dimension_improvement": impact["dimension_improvement"],
+                        "dimension_weight": impact["dimension_weight"],
+                        "overall_score_impact": impact["overall_score_impact"],
+                        "current_overall_score": impact["current_overall_score"],
+                        "projected_overall_score": impact["projected_overall_score"],
+                        "quantifiable": True,
+                        "recommendation_confidence": 95.0
+                    })
 
         # 3. Missing Fields check
         missing_count = float(clean_features.get("missing_fields", 0.0))
         if missing_count > 0 and "MISSING_REQUIRED_FIELD" in self.rules:
             rule = self.rules["MISSING_REQUIRED_FIELD"]
             completeness_score = float(clean_features.get("completeness_score", 100.0))
-            w_c = weights_config.get("completeness", 0.30) / sum_weights
-            expected_improvement = round((100.0 - completeness_score) * w_c, 2)
+            dim_delta = 100.0 - completeness_score
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Completeness", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
             
             missing_fields_list = [k for k, v in cdata.items() if v is None or str(v).strip() in ['', 'N/A', 'null', 'None']]
             missing_str = ", ".join(missing_fields_list) if missing_fields_list else f"{int(missing_count)} fields"
@@ -127,7 +151,16 @@ class RecommendationEngine:
                 "source_file": file_name,
                 "record_label": rec_label,
                 "recommendation": f"Populate missing required field(s) '{missing_str}' in file '{file_name}' for {rec_label}.",
-                "expected_improvement": expected_improvement,
+                "expected_improvement": impact["overall_score_impact"],
+                "affected_dimension": impact["affected_dimension"],
+                "current_dimension_score": impact["current_dimension_score"],
+                "projected_dimension_score": impact["projected_dimension_score"],
+                "dimension_improvement": impact["dimension_improvement"],
+                "dimension_weight": impact["dimension_weight"],
+                "overall_score_impact": impact["overall_score_impact"],
+                "current_overall_score": impact["current_overall_score"],
+                "projected_overall_score": impact["projected_overall_score"],
+                "quantifiable": True,
                 "recommendation_confidence": rule["recommendation_confidence"]
             })
 
@@ -136,8 +169,8 @@ class RecommendationEngine:
         if invalid_count > 0 and not recommendations and "INVALID_FORMAT" in self.rules:
             rule = self.rules["INVALID_FORMAT"]
             validity_score = float(clean_features.get("validity_score", 100.0))
-            w_v = weights_config.get("validity", 0.25) / sum_weights
-            expected_improvement = round((100.0 - validity_score) * w_v, 2)
+            dim_delta = 100.0 - validity_score
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
             
             recommendations.append({
                 "recommendation_type": "INVALID_FORMAT",
@@ -149,7 +182,16 @@ class RecommendationEngine:
                 "source_file": file_name,
                 "record_label": rec_label,
                 "recommendation": f"Correct {int(invalid_count)} invalid attribute values in file '{file_name}' for {rec_label}.",
-                "expected_improvement": expected_improvement,
+                "expected_improvement": impact["overall_score_impact"],
+                "affected_dimension": impact["affected_dimension"],
+                "current_dimension_score": impact["current_dimension_score"],
+                "projected_dimension_score": impact["projected_dimension_score"],
+                "dimension_improvement": impact["dimension_improvement"],
+                "dimension_weight": impact["dimension_weight"],
+                "overall_score_impact": impact["overall_score_impact"],
+                "current_overall_score": impact["current_overall_score"],
+                "projected_overall_score": impact["projected_overall_score"],
+                "quantifiable": True,
                 "recommendation_confidence": rule["recommendation_confidence"]
             })
 
@@ -158,20 +200,33 @@ class RecommendationEngine:
         if dup_count > 0 and "DUPLICATE_RECORD" in self.rules:
             rule = self.rules["DUPLICATE_RECORD"]
             uniqueness_score = float(clean_features.get("uniqueness_score", 100.0))
-            w_u = weights_config.get("uniqueness", 0.15) / sum_weights
-            expected_improvement = round((100.0 - uniqueness_score) * w_u, 2)
+            dim_delta = 100.0 - uniqueness_score
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Uniqueness", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
             
             recommendations.append({
                 "recommendation_type": "DUPLICATE_RECORD",
-                "category": rule["category"],
+                "category": "Data Uniqueness",
                 "priority": rule["priority"],
                 "priority_score": rule["priority_score"],
-                "field_name": "employee_id / email",
+                "field_name": "Identifier / Key Fields",
                 "current_value": "Duplicate Entry",
                 "source_file": file_name,
                 "record_label": rec_label,
-                "recommendation": f"Deduplicate conflicting record entries in file '{file_name}' for {rec_label}.",
-                "expected_improvement": expected_improvement,
+                "problem_what": "Potential Full-Row Duplicate Record",
+                "problem_where": f"File: {file_name} → {rec_label}",
+                "problem_why": "Identical content found across comparable populated fields, affecting Data Uniqueness.",
+                "problem_action": f"Review whether the repeated record entry in file '{file_name}' for {rec_label} is intentional.",
+                "recommendation": f"Review whether the repeated record entry in file '{file_name}' for {rec_label} is intentional.",
+                "expected_improvement": impact["overall_score_impact"],
+                "affected_dimension": impact["affected_dimension"],
+                "current_dimension_score": impact["current_dimension_score"],
+                "projected_dimension_score": impact["projected_dimension_score"],
+                "dimension_improvement": impact["dimension_improvement"],
+                "dimension_weight": impact["dimension_weight"],
+                "overall_score_impact": impact["overall_score_impact"],
+                "current_overall_score": impact["current_overall_score"],
+                "projected_overall_score": impact["projected_overall_score"],
+                "quantifiable": True,
                 "recommendation_confidence": rule["recommendation_confidence"]
             })
 
@@ -180,20 +235,29 @@ class RecommendationEngine:
         timeliness_score = float(clean_features.get("timeliness_score", 100.0))
         if (record_age > 30 or timeliness_score < 90.0) and "STALE_RECORD" in self.rules:
             rule = self.rules["STALE_RECORD"]
-            w_t = weights_config.get("timeliness", 0.10) / sum_weights
-            expected_improvement = round((100.0 - timeliness_score) * w_t, 2)
+            dim_delta = 100.0 - timeliness_score
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Timeliness", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
             
             recommendations.append({
                 "recommendation_type": "STALE_RECORD",
                 "category": rule["category"],
                 "priority": rule["priority"],
                 "priority_score": rule["priority_score"],
-                "field_name": "updated_at / joining_date",
+                "field_name": "Timestamp / Date Fields",
                 "current_value": f"Age: {int(record_age)} days",
                 "source_file": file_name,
                 "record_label": rec_label,
                 "recommendation": f"Refresh outdated record attributes in file '{file_name}' for {rec_label}.",
-                "expected_improvement": expected_improvement,
+                "expected_improvement": impact["overall_score_impact"],
+                "affected_dimension": impact["affected_dimension"],
+                "current_dimension_score": impact["current_dimension_score"],
+                "projected_dimension_score": impact["projected_dimension_score"],
+                "dimension_improvement": impact["dimension_improvement"],
+                "dimension_weight": impact["dimension_weight"],
+                "overall_score_impact": impact["overall_score_impact"],
+                "current_overall_score": impact["current_overall_score"],
+                "projected_overall_score": impact["projected_overall_score"],
+                "quantifiable": True,
                 "recommendation_confidence": rule["recommendation_confidence"]
             })
 

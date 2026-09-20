@@ -25,38 +25,73 @@ class UpdateDocumentStage:
         target_path = ""
         owner_obj = source_doc.uploaded_by if source_doc else context.get('user')
 
-        folder_id = None
+        t_log_path = ""
+        r_rel_path = ""
         if source_doc and source_doc.metadata and isinstance(source_doc.metadata, dict):
             s_meta = source_doc.metadata
             repo_type = s_meta.get("repository_type", repo_type)
             folder_id = s_meta.get("folder_id")
-            target_path = s_meta.get("target_logical_path") or s_meta.get("relative_path") or ""
+            t_log_path = s_meta.get("target_logical_path") or ""
+            r_rel_path = s_meta.get("relative_path") or ""
 
         if not folder_id and metadata and isinstance(metadata, dict):
             repo_type = metadata.get("repository_type", repo_type)
             folder_id = metadata.get("folder_id")
-            if not target_path:
-                target_path = metadata.get("target_logical_path") or metadata.get("relative_path") or ""
+            if not t_log_path:
+                t_log_path = metadata.get("target_logical_path") or ""
+            if not r_rel_path:
+                r_rel_path = metadata.get("relative_path") or ""
+
+        t_log_path = t_log_path.strip('/')
+        r_rel_path = r_rel_path.strip('/')
+
+        if t_log_path and r_rel_path:
+            if r_rel_path == t_log_path or r_rel_path.startswith(f"{t_log_path}/"):
+                target_path = r_rel_path
+            else:
+                target_path = f"{t_log_path}/{r_rel_path}"
+        elif r_rel_path:
+            target_path = r_rel_path
+        else:
+            target_path = t_log_path
 
         from repository.models import RepositoryFolder
+        clean_title = title.split('/')[-1].split('\\')[-1]
+
         if folder_id:
             parent_f = RepositoryFolder.objects.filter(id=folder_id, is_deleted=False).first()
             if parent_f:
                 folder_obj = parent_f
                 repo_type = parent_f.repository_type
-                clean_title = title.split('/')[-1]
-                clean_rel = target_path.strip('/')
-                if clean_rel and clean_rel.startswith(parent_f.logical_path):
-                    target_path = clean_rel
+                if r_rel_path:
+                    clean_r = r_rel_path.replace('\\', '/').strip('/')
+                    if clean_r.startswith(f"{parent_f.logical_path}/"):
+                        target_path = clean_r
+                    else:
+                        # Strip redundant leading folder segment if it matches parent folder name
+                        parent_name = parent_f.name.strip()
+                        r_parts = clean_r.split('/')
+                        if len(r_parts) > 1 and r_parts[0].lower() == parent_name.lower():
+                            clean_r = "/".join(r_parts[1:])
+                        target_path = f"{parent_f.logical_path}/{clean_r}"
+                elif t_log_path:
+                    clean_rel = t_log_path
+                    if clean_rel.endswith(f"/{clean_title}"):
+                        target_path = clean_rel
+                    else:
+                        target_path = f"{clean_rel}/{clean_title}"
                 else:
-                    target_path = f"{parent_f.logical_path}/{clean_rel.split('/')[-1] if clean_rel else clean_title}"
+                    target_path = f"{parent_f.logical_path}/{clean_title}"
 
         if not target_path:
             root_prefix = 'Personal' if repo_type == 'personal' else 'Team'
-            target_path = f"{root_prefix}/{title.split('/')[-1]}"
+            target_path = f"{root_prefix}/{clean_title}"
         elif not target_path.startswith(('Team/', 'Personal/')):
             root_prefix = 'Personal' if repo_type == 'personal' else 'Team'
             target_path = f"{root_prefix}/{target_path.lstrip('/')}"
+
+        if not target_path.endswith(f"/{clean_title}") and target_path != clean_title:
+            target_path = f"{target_path}/{clean_title}"
 
         # Resolve or create parent folder structure if target path has subdirectories
         from repository.services.folder_service import FolderService

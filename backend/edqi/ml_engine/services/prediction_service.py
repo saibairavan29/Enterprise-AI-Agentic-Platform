@@ -127,32 +127,39 @@ class PredictionService:
         # Extract features and filter out metadata keys
         clean_features = {k: v for k, v in ml_ready_features.items() if k != "feature_names"}
 
-        # 1. Retrieve active models
+        # 1. Retrieve active models & applicability matrix
         active_model = self.training_repo.get_active_classifier()
         active_anomaly = self.training_repo.get_active_anomaly_detector()
 
+        models_applicability = self.training_repo.get_models_applicability(file_category='tabular')
+
         if not active_model or not active_anomaly:
-            return self._execute_rule_fallback(
+            res = self._execute_rule_fallback(
                 record_id, clean_features, 
                 "No ACTIVE classification or anomaly models registered."
             )
+            res["models_applicability"] = models_applicability
+            return res
 
         # 2. Compatibility Checks
-        # Validate schema length
         if active_model.feature_count != len(clean_features):
-            return self._execute_rule_fallback(
+            res = self._execute_rule_fallback(
                 record_id, clean_features, 
                 f"Feature count mismatch: model expects {active_model.feature_count}, got {len(clean_features)}."
             )
+            res["models_applicability"] = models_applicability
+            return res
 
         # 3. Schema Validation
         try:
             FeatureSchemaValidator.validate_features_dict(clean_features)
         except Exception as e:
-            return self._execute_rule_fallback(
+            res = self._execute_rule_fallback(
                 record_id, clean_features, 
                 f"Features schema validation failed: {str(e)}"
             )
+            res["models_applicability"] = models_applicability
+            return res
 
         try:
             # 4. Load Preprocessing Pipeline
@@ -165,7 +172,6 @@ class PredictionService:
             # 5. Supervised quality classification
             classifier = ModelRepository.load_estimator(active_model.model_path)
             
-            # Get target classes mapping list
             classes = active_model.training_configuration.get("classes", ["Excellent", "Good", "Average", "Poor"])
 
             pred_encoded = int(classifier.predict(scaled_features)[0])

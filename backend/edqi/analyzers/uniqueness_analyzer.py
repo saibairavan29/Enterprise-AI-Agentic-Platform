@@ -24,57 +24,56 @@ class UniquenessAnalyzer(BaseAnalyzer):
         duplicate_employee_ids = getattr(context, "duplicate_employee_ids", set())
         duplicate_emails = getattr(context, "duplicate_emails", set())
 
-        # 1. Employee ID check
-        for f in record.keys():
-            if "employee_id" in f.lower() or "emp_id" in f.lower():
-                val = record.get(f)
-                if val is not None:
-                    checks_run += 1
-                    val_str = str(val).strip()
-                    if val_str in duplicate_employee_ids:
-                        violations_count += 1
-                        issues.append({
-                            "field_name": f,
-                            "issue_type": "DUPLICATE_RECORD",
-                            "severity": "HIGH",
-                            "expected_value": "Unique Employee Identifier",
-                            "actual_value": val_str,
-                            "description": f"Employee identifier '{val_str}' in field '{f}' is duplicated in this batch.",
-                            "tags": ["Deduplication", "Employee_ID"]
-                        })
-                        from edqi.calculators.recommendations import RecommendationEngine
-                        fix, conf = RecommendationEngine.generate_recommendation("DUPLICATE_RECORD", f)
-                        recommendations.append({
-                            "field_name": f,
-                            "suggested_fix": fix,
-                            "recommendation_confidence": conf
-                        })
+        # 1. Unique Key / ID checks (dynamically check any identifier or key field)
+        duplicate_keys = getattr(context, "duplicate_keys", {})
+        if not duplicate_keys and hasattr(context, "duplicate_employee_ids"):
+            duplicate_keys = {"id": getattr(context, "duplicate_employee_ids", set()), "email": getattr(context, "duplicate_emails", set())}
 
-        # 2. Email uniqueness check
-        for f in record.keys():
-            if "email" in f.lower():
-                val = record.get(f)
-                if val:
-                    checks_run += 1
-                    val_str = str(val).strip().lower()
-                    if val_str in duplicate_emails:
-                        violations_count += 1
-                        issues.append({
-                            "field_name": f,
-                            "issue_type": "DUPLICATE_RECORD",
-                            "severity": "HIGH",
-                            "expected_value": "Unique Email Address",
-                            "actual_value": str(val),
-                            "description": f"Email address '{val}' in field '{f}' is registered to multiple records.",
-                            "tags": ["Deduplication", "Email"]
-                        })
-                        from edqi.calculators.recommendations import RecommendationEngine
-                        fix, conf = RecommendationEngine.generate_recommendation("DUPLICATE_RECORD", f)
-                        recommendations.append({
-                            "field_name": f,
-                            "suggested_fix": fix,
-                            "recommendation_confidence": conf
-                        })
+        for f, val in record.items():
+            if val is None:
+                continue
+            val_str = str(val).strip()
+            f_lower = f.lower()
+
+            GENERIC_NON_IDS = {'yes', 'no', 'true', 'false', 'y', 'n', '0', '1', 'null', 'none', 'n/a', 'nan', ''}
+            if val_str.lower() in GENERIC_NON_IDS:
+                continue
+
+            # Check if this field name is a valid unique ID column
+            is_prose = any(prose in f_lower for prose in ['requirement', 'metric', 'indicator', 'performance', 'finding', 'description', 'notes', 'comment', 'question', 'criteria', 'task', 'scope', 'action', 'result', 'status'])
+            is_id_field = not is_prose and (
+                f_lower in ['id', 'code', 'key', 'uuid', 'record_id', 'employee_id', 'project_id', 'incident_id', 'order_id', 'doc_id', 'ref', 'reference', 'serial_no', 'account_no'] or
+                f_lower.endswith("_id") or f_lower.endswith("_code") or f_lower.endswith("_num") or f_lower.endswith("_number") or f_lower.endswith("_ref") or f_lower.endswith("_key") or
+                f_lower.startswith("id_") or f_lower.startswith("code_") or f_lower.startswith("key_") or "email" in f_lower
+            )
+            if is_id_field:
+                checks_run += 1
+                # Check against batch duplicate sets
+                dup_set = duplicate_keys.get(f, set())
+                if not dup_set:
+                    # check fallback keys
+                    for k_key, k_set in duplicate_keys.items():
+                        if k_key in f_lower or f_lower in k_key:
+                            dup_set = k_set
+                            break
+                if val_str in dup_set:
+                    violations_count += 1
+                    issues.append({
+                        "field_name": f,
+                        "issue_type": "DUPLICATE_RECORD",
+                        "severity": "HIGH",
+                        "expected_value": f"Unique Value for {f}",
+                        "actual_value": val_str,
+                        "description": f"Identifier value '{val_str}' in field '{f}' is duplicated across records.",
+                        "tags": ["Deduplication", f]
+                    })
+                    from edqi.calculators.recommendations import RecommendationEngine
+                    fix, conf = RecommendationEngine.generate_recommendation("DUPLICATE_RECORD", f)
+                    recommendations.append({
+                        "field_name": f,
+                        "suggested_fix": fix,
+                        "recommendation_confidence": conf
+                    })
 
         # Score calculations: duplicates reduce uniqueness to 0.0 for that specific record
         score = 100.0 if violations_count == 0 else 0.0

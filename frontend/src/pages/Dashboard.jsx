@@ -77,6 +77,8 @@ const Dashboard = () => {
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [targetFolderId, setTargetFolderId] = useState(null);
+  const [targetFolderPath, setTargetFolderPath] = useState('');
 
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [recycleBinData, setRecycleBinData] = useState({ folders: [], documents: [] });
@@ -88,6 +90,25 @@ const Dashboard = () => {
   const [folderFiles, setFolderFiles] = useState([]);
   const [parserType, setParserType] = useState('auto');
   const [dragActive, setDragActive] = useState(false);
+
+  // Modal Launchers with explicitly targeted subfolder path context
+  const openNewFolderModal = (folderId = null, path = null) => {
+    setTargetFolderId(folderId !== null ? folderId : currentFolderId);
+    setTargetFolderPath(path !== null ? path : (explorerData.current_logical_path || 'Team/'));
+    setNewFolderName('');
+    setShowNewFolderModal(true);
+  };
+
+  const openUploadModal = (mode = 'file', folderId = null, path = null) => {
+    setUploadMode(mode);
+    setTargetFolderId(folderId !== null ? folderId : currentFolderId);
+    setTargetFolderPath(path !== null ? path : (explorerData.current_logical_path || 'Team/'));
+    setSelectedFile(null);
+    setFolderFiles([]);
+    setPipelineResult(null);
+    setPipelineError('');
+    setShowUploadModal(true);
+  };
 
   // Ingestion Pipeline Status Monitor
   const [processing, setProcessing] = useState(false);
@@ -148,6 +169,39 @@ const Dashboard = () => {
     return () => stopPolling();
   }, []);
 
+  // Poll ingestion status when upload modal shows PROCESSING status
+  useEffect(() => {
+    let interval = null;
+    if (showUploadModal && pipelineResult && pipelineResult.document_id && pipelineResult.processing_status === 'PROCESSING') {
+      interval = setInterval(async () => {
+        try {
+          const res = await client.get(`ingestion/status/${pipelineResult.document_id}/`);
+          if (res.data && res.data.success) {
+            const newStatus = res.data.processing_status;
+            setPipelineResult(prev => ({
+              ...prev,
+              processing_status: newStatus,
+              pipeline_result: {
+                standardized_record: res.data.standardized_preview || prev.pipeline_result?.standardized_record || {},
+                metadata: res.data.metadata || prev.pipeline_result?.metadata || {},
+                stage_execution: res.data.stage_execution || prev.pipeline_result?.stage_execution || {}
+              }
+            }));
+            if (newStatus === 'COMPLETED' || newStatus === 'FAILED') {
+              clearInterval(interval);
+              fetchExplorer();
+            }
+          }
+        } catch (e) {
+          // Ignore transient status poll error
+        }
+      }, 2500);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [showUploadModal, pipelineResult?.document_id, pipelineResult?.processing_status]);
+
   // Fetch Explorer Contents
   const fetchExplorer = async (repoType = selectedRepoType, folderId = currentFolderId) => {
     setLoadingExplorer(true);
@@ -189,11 +243,14 @@ const Dashboard = () => {
     if (!newFolderName.trim()) return;
     setCreatingFolder(true);
     setRepoError('');
+    const effectiveParentId = targetFolderId !== null ? targetFolderId : currentFolderId;
     try {
       const res = await client.post('repository/folders/', {
         name: newFolderName.trim(),
         repository_type: selectedRepoType,
-        parent: currentFolderId
+        parent: effectiveParentId,
+        parent_id: effectiveParentId,
+        parent_path: targetFolderPath || explorerData.current_logical_path
       });
       if (res.data && res.data.success) {
         setRepoSuccess(`Folder "${newFolderName}" created successfully.`);
@@ -361,7 +418,11 @@ const Dashboard = () => {
         if (d.processing_status === 'COMPLETED') {
           stopPolling();
           setProcessing(false);
-          fetchExplorer();
+          if (targetFolderId !== null && targetFolderId !== currentFolderId) {
+            setCurrentFolderId(targetFolderId);
+          } else {
+            fetchExplorer();
+          }
         } else if (d.processing_status === 'FAILED') {
           stopPolling();
           setProcessing(false);
@@ -385,6 +446,9 @@ const Dashboard = () => {
     setPipelineError('');
     setPipelineResult(null);
 
+    const effectiveFolderId = targetFolderId !== null ? targetFolderId : currentFolderId;
+    const effectivePath = targetFolderPath || explorerData.current_logical_path;
+
     if (uploadMode === 'file') {
       if (!selectedFile) {
         setPipelineError('Please select a file to upload.');
@@ -396,7 +460,8 @@ const Dashboard = () => {
       const formData = new FormData();
       formData.append('file', selectedFile);
       formData.append('repository_type', selectedRepoType);
-      if (currentFolderId) formData.append('folder_id', currentFolderId);
+      if (effectiveFolderId) formData.append('folder_id', effectiveFolderId);
+      if (effectivePath) formData.append('target_logical_path', effectivePath);
       if (parserType !== 'auto') formData.append('parser_type', parserType);
 
       try {
@@ -404,20 +469,16 @@ const Dashboard = () => {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
         if (response.data && response.data.success) {
-          const docId = response.data.data?.document_id;
-          if (docId) {
-            startPolling(docId);
-          } else {
-            setPipelineResult(response.data.data);
-            setProcessing(false);
-            fetchExplorer();
-          }
+          setPipelineResult(response.data.data);
+          setProcessing(false);
+          showToast('File uploaded successfully!');
+          fetchExplorer();
         } else {
           setPipelineError(response.data.message || 'File upload failed.');
           setProcessing(false);
         }
       } catch (err) {
-        setPipelineError(err.response?.data?.message || 'File upload failed.');
+        setPipelineError(err.response?.data?.message || err.message || 'File upload failed.');
         setProcessing(false);
       }
     } else {
@@ -429,6 +490,7 @@ const Dashboard = () => {
       setProcessing(true);
       const total = folderFiles.length;
       let completed = 0;
+      const batchDocIds = [];
 
       for (let i = 0; i < total; i++) {
         const f = folderFiles[i];
@@ -437,7 +499,8 @@ const Dashboard = () => {
         const formData = new FormData();
         formData.append('file', f);
         formData.append('repository_type', selectedRepoType);
-        if (currentFolderId) formData.append('folder_id', currentFolderId);
+        if (effectiveFolderId) formData.append('folder_id', effectiveFolderId);
+        if (effectivePath) formData.append('target_logical_path', effectivePath);
         if (f.webkitRelativePath) formData.append('relative_path', f.webkitRelativePath);
         if (parserType !== 'auto') formData.append('parser_type', parserType);
 
@@ -445,24 +508,22 @@ const Dashboard = () => {
           const res = await client.post('ingestion/upload/', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           });
-          if (res.data && res.data.success && i === total - 1) {
-            const docId = res.data.data?.document_id;
-            if (docId) {
-              startPolling(docId);
-            } else {
-              setPipelineResult(res.data.data);
-              setProcessing(false);
-              fetchExplorer();
-            }
+          if (res.data && res.data.success && res.data.data?.document_id) {
+            batchDocIds.push(res.data.data.document_id);
           }
         } catch (err) {
           console.error(`Folder item ${f.name} upload failed:`, err);
         }
         completed++;
+        await new Promise(r => setTimeout(r, 100));
       }
-      if (!pipelineResult) {
-        setProcessing(false);
-        showToast(`Uploaded ${completed} items from folder.`);
+
+      setProcessing(false);
+      setShowUploadModal(false);
+      showToast(`Uploaded ${completed} items from folder. Ingestion running in background.`);
+      if (targetFolderId !== null && targetFolderId !== currentFolderId) {
+        setCurrentFolderId(targetFolderId);
+      } else {
         fetchExplorer();
       }
     }
@@ -635,44 +696,44 @@ const Dashboard = () => {
             >
               Enterprise AI Platform
             </span>
-            <div className="navbar-nav d-flex flex-row gap-3">
+            <div className="navbar-nav d-flex flex-row gap-2">
               <button 
-                className={`btn btn-sm px-3 ${activeTab === 'repository' ? 'btn-premium-primary text-white' : 'btn-link text-secondary text-decoration-none'}`} 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'repository' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
                 onClick={() => setActiveTab('repository')}
               >
-                📁 Enterprise Data Repository
+                <i className="bi bi-folder-fill text-warning me-1"></i> Enterprise Data Repository
               </button>
               <button 
-                className={`btn btn-sm px-3 ${activeTab === 'employees' ? 'btn-premium-primary text-white' : 'btn-link text-secondary text-decoration-none'}`} 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'employees' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
                 onClick={() => setActiveTab('employees')}
               >
                 Employee Directory
               </button>
               <button 
-                className={`btn btn-sm px-3 ${activeTab === 'explainability' ? 'btn-premium-primary text-white' : 'btn-link text-secondary text-decoration-none'}`} 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'explainability' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
                 onClick={() => setActiveTab('explainability')}
               >
                 Data Quality Report
               </button>
               <button 
-                className={`btn btn-sm px-3 ${activeTab === 'conflicts' ? 'btn-premium-primary text-white' : 'btn-link text-secondary text-decoration-none'}`} 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'conflicts' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
                 onClick={() => setActiveTab('conflicts')}
               >
                 Check Data Conflicts
               </button>
               <button 
-                className={`btn btn-sm px-3 ${activeTab === 'knowledge-assistant' ? 'btn-premium-primary text-white' : 'btn-link text-secondary text-decoration-none'}`} 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'knowledge-assistant' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
                 onClick={() => setActiveTab('knowledge-assistant')}
               >
-                🤖 Phase 5 Knowledge Assistant
+                <i className="bi bi-robot text-primary me-1"></i> Phase 5 Knowledge Assistant
               </button>
             </div>
           </div>
           <div className="d-flex align-items-center gap-3">
-            <span className="badge bg-success py-2 px-3 text-uppercase font-monospace" style={{ fontSize: '0.75rem', letterSpacing: '1px' }}>
+            <span className="badge bg-success py-2 px-3 text-uppercase font-monospace fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '1px' }}>
               Role: {user?.role}
             </span>
-            <span className="text-secondary small fw-medium">Welcome, {user?.username}</span>
+            <span className="text-dark small fw-bold">Welcome, {user?.username}</span>
             <button onClick={logout} className="btn btn-premium-secondary btn-sm py-1 px-3">Logout</button>
           </div>
         </div>
@@ -685,8 +746,8 @@ const Dashboard = () => {
         {activeTab === 'dashboard' && (
           <>
             <div className="mb-5 text-center text-md-start">
-              <h2 className="text-gradient fw-bold mb-2">Decision Intelligence Console</h2>
-              <p className="text-secondary">Enterprise-grade platform shell ready for trusted business metrics. Manage files, query knowledge, and audit records below.</p>
+              <h2 className="text-success fw-bold mb-2">Decision Intelligence Console</h2>
+              <p className="text-dark opacity-75 fw-medium">Enterprise-grade platform shell ready for trusted business metrics. Manage files, query knowledge, and audit records below.</p>
             </div>
 
             <div className="row g-4">
@@ -702,7 +763,7 @@ const Dashboard = () => {
                       <h5 className="fw-bold text-success mb-0">Enterprise Data Repository</h5>
                       <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>UNIFIED</span>
                     </div>
-                    <p className="text-secondary small">Unified file explorer, logical path manager (`Team/Projects/...`), single & folder uploading, real-time ingestion status monitor, and soft-delete recycle bin.</p>
+                    <p className="text-dark opacity-75 small">Unified file explorer, logical path manager (`Team/Projects/...`), single & folder uploading, real-time ingestion status monitor, and soft-delete recycle bin.</p>
                   </div>
                   <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
                     <span className="text-success fw-bold small">Launch Repository Workspace →</span>
@@ -719,13 +780,13 @@ const Dashboard = () => {
                 >
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-white mb-0">Employee Directory</h5>
+                      <h5 className="fw-bold text-dark mb-0">Employee Directory</h5>
                       <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>ACTIVE</span>
                     </div>
-                    <p className="text-secondary small">Access searchable directory of team members, roles, current projects, and domain expert skills.</p>
+                    <p className="text-dark opacity-75 small">Access searchable directory of team members, roles, current projects, and domain expert skills.</p>
                   </div>
                   <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-info fw-bold small">Launch Employee Directory →</span>
+                    <span className="text-primary fw-bold small">Launch Employee Directory →</span>
                   </div>
                 </div>
               </div>
@@ -739,13 +800,13 @@ const Dashboard = () => {
                 >
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-white mb-0">Check Data Conflicts</h5>
+                      <h5 className="fw-bold text-dark mb-0">Check Data Conflicts</h5>
                       <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>ACTIVE</span>
                     </div>
-                    <p className="text-secondary small">Analyzes semantic consistency to detect contradictory, duplicate, and outdated knowledge.</p>
+                    <p className="text-dark opacity-75 small">Analyzes semantic consistency to detect contradictory, duplicate, and outdated knowledge.</p>
                   </div>
                   <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-info fw-bold small">Launch Conflict Workspace →</span>
+                    <span className="text-primary fw-bold small">Launch Conflict Workspace →</span>
                   </div>
                 </div>
               </div>
@@ -759,13 +820,13 @@ const Dashboard = () => {
                 >
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-white mb-0">Data Quality Report</h5>
+                      <h5 className="fw-bold text-dark mb-0">Data Quality Report</h5>
                       <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>ACTIVE</span>
                     </div>
-                    <p className="text-secondary small">Evaluates data quality using ML classification and generates SHAP explainability attributions with recommendations.</p>
+                    <p className="text-dark opacity-75 small">Evaluates data quality using ML classification and generates SHAP explainability attributions with recommendations.</p>
                   </div>
                   <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-info fw-bold small">Launch Quality & XAI Workspace →</span>
+                    <span className="text-primary fw-bold small">Launch Quality & XAI Workspace →</span>
                   </div>
                 </div>
               </div>
@@ -779,10 +840,10 @@ const Dashboard = () => {
                 >
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-primary mb-0">🤖 Knowledge Assistant</h5>
-                      <span className="badge bg-primary font-monospace" style={{ fontSize: '0.7rem' }}>PHASE 5</span>
+                      <h5 className="fw-bold text-primary mb-0"><i className="bi bi-robot me-1"></i> Knowledge Assistant</h5>
+                      <span className="badge bg-primary font-monospace text-white" style={{ fontSize: '0.7rem' }}>PHASE 5</span>
                     </div>
-                    <p className="text-secondary small">RAG-grounded natural language question-answering with local LLMs, FAISS vector index, and logical file/folder path resolution.</p>
+                    <p className="text-dark opacity-75 small">RAG-grounded natural language question-answering with local LLMs, FAISS vector index, and logical file/folder path resolution.</p>
                   </div>
                   <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
                     <span className="text-primary fw-bold small">Launch Knowledge Assistant →</span>
@@ -828,119 +889,144 @@ const Dashboard = () => {
 
             {/* General Errors / Successes */}
             {repoError && (
-              <div className="alert alert-danger border-0 text-white mb-3 d-flex justify-content-between align-items-center" style={{ backgroundColor: 'rgba(220, 53, 69, 0.2)' }}>
+              <div className="alert alert-danger border border-danger-subtle text-danger mb-3 d-flex justify-content-between align-items-center fw-bold">
                 <span>🛑 {repoError}</span>
-                <button className="btn btn-sm text-white border-0" onClick={() => setRepoError('')}>×</button>
+                <button className="btn btn-sm text-danger border-0" onClick={() => setRepoError('')}>×</button>
               </div>
             )}
             {repoSuccess && (
-              <div className="alert alert-success border-0 text-white mb-3 d-flex justify-content-between align-items-center" style={{ backgroundColor: 'rgba(25, 135, 84, 0.2)' }}>
+              <div className="alert alert-success border border-success-subtle text-success mb-3 d-flex justify-content-between align-items-center fw-bold">
                 <span>✓ {repoSuccess}</span>
-                <button className="btn btn-sm text-white border-0" onClick={() => setRepoSuccess('')}>×</button>
+                <button className="btn btn-sm text-success border-0" onClick={() => setRepoSuccess('')}>×</button>
               </div>
             )}
 
             {repoTabMode === 'explorer' ? (
               <div className="d-flex flex-column gap-4">
                 
-                {/* Repositories Mode Switcher & Explorer Controls */}
-                <div className="glass-panel p-3">
+                {/* Windows File Explorer Command Bar & Path Bar */}
+                <div className="glass-panel p-3 shadow-sm rounded-3 bg-white border">
                   <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     
                     {/* Repository Mode Slider (Team vs Personal) */}
-                    <div className="d-flex align-items-center bg-dark p-1 rounded-3 border border-secondary">
+                    <div className="d-flex align-items-center bg-light p-1 rounded-3 border border-secondary-subtle">
                       <button 
-                        className={`btn btn-sm py-1 px-4 rounded-2 border-0 fw-bold transition-all ${selectedRepoType === 'team' ? 'bg-success text-white shadow' : 'text-secondary'}`}
+                        className={`btn btn-sm py-1 px-4 rounded-2 border-0 fw-bold transition-all ${selectedRepoType === 'team' ? 'bg-success text-white shadow-sm' : 'text-dark'}`}
                         onClick={() => handleSwitchRepoType('team')}
                       >
                         🏢 Team Repository (Shared)
                       </button>
                       <button 
-                        className={`btn btn-sm py-1 px-4 rounded-2 border-0 fw-bold transition-all ${selectedRepoType === 'personal' ? 'bg-info text-dark shadow' : 'text-secondary'}`}
+                        className={`btn btn-sm py-1 px-4 rounded-2 border-0 fw-bold transition-all ${selectedRepoType === 'personal' ? 'bg-info text-white shadow-sm' : 'text-dark'}`}
                         onClick={() => handleSwitchRepoType('personal')}
                       >
-                        🔒 Personal Repository (Confidential)
+                        🔒 Personal Workspace
                       </button>
                     </div>
 
-                    {/* Action Bar Buttons */}
+                    {/* Windows Explorer Style Command Toolbar */}
                     <div className="d-flex flex-wrap align-items-center gap-2">
+                      
+                      {/* + New Folder Button */}
                       <button 
-                        className="btn btn-sm btn-outline-success d-flex align-items-center gap-1"
-                        onClick={() => setShowNewFolderModal(true)}
+                        className="btn btn-sm btn-success fw-bold d-flex align-items-center gap-1 text-white shadow-sm"
+                        onClick={() => openNewFolderModal(currentFolderId, explorerData.current_logical_path)}
+                        title="Create a new subfolder in current location"
                       >
-                        <i className="bi bi-folder-plus text-success"></i> New Folder
+                        <i className="bi bi-folder-plus text-white fs-6"></i> + New Folder
                       </button>
+
+                      {/* Upload File Button */}
                       <button 
-                        className="btn btn-sm btn-premium-primary d-flex align-items-center gap-1"
-                        onClick={() => { setUploadMode('file'); setShowUploadModal(true); }}
+                        className="btn btn-sm btn-primary fw-bold d-flex align-items-center gap-1 text-white shadow-sm"
+                        onClick={() => openUploadModal('file', currentFolderId, explorerData.current_logical_path)}
+                        title="Upload file into current location"
                       >
-                        <i className="bi bi-upload text-white"></i> Upload File
+                        <i className="bi bi-file-earmark-arrow-up text-white fs-6"></i> Upload File
                       </button>
+
+                      {/* Upload Folder Tree Button */}
                       <button 
-                        className="btn btn-sm btn-premium-primary d-flex align-items-center gap-1"
-                        onClick={() => { setUploadMode('folder'); setShowUploadModal(true); }}
+                        className="btn btn-sm btn-outline-primary fw-bold d-flex align-items-center gap-1"
+                        onClick={() => openUploadModal('folder', currentFolderId, explorerData.current_logical_path)}
+                        title="Upload local folder tree structure"
                       >
-                        <i className="bi bi-folder-symlink text-white"></i> Upload Folder
+                        <i className="bi bi-folder-symlink fs-6"></i> Upload Folder Tree
                       </button>
+
+                      <div className="vr mx-1 opacity-25"></div>
+
+                      {/* Copy Path */}
                       <button 
-                        className="btn btn-sm btn-outline-info d-flex align-items-center gap-1"
+                        className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
                         onClick={() => copyLogicalPath(explorerData.current_logical_path)}
-                        title="Copy Logical Folder Path for Knowledge Assistant"
+                        title="Copy Logical Path for Assistant"
                       >
-                        <i className="bi bi-clipboard text-info"></i> Copy Path
+                        <i className="bi bi-clipboard text-secondary"></i> Copy Path
                       </button>
-                      <button 
-                        className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
-                        onClick={deleteAllRepositoryItems}
-                        title="Move all items in current view to Recycle Bin"
-                      >
-                        <i className="bi bi-trash3 text-danger"></i> Delete All Files
-                      </button>
+
+                      {/* Recycle Bin */}
                       <button 
                         className="btn btn-sm btn-outline-warning d-flex align-items-center gap-1"
                         onClick={openRecycleBinModal}
+                        title="View soft-deleted items"
                       >
                         <i className="bi bi-recycle text-warning"></i> Recycle Bin
                       </button>
+
+                      {/* Refresh */}
                       <button 
-                        className="btn btn-sm btn-premium-secondary d-flex align-items-center gap-1"
+                        className="btn btn-sm btn-outline-dark d-flex align-items-center gap-1"
                         onClick={() => fetchExplorer()}
                         disabled={loadingExplorer}
+                        title="Refresh explorer directory"
                       >
-                        <i className="bi bi-arrow-clockwise text-white"></i> Refresh
+                        <i className="bi bi-arrow-clockwise text-success"></i> Refresh
+                      </button>
+
+                      {/* Delete All Files */}
+                      <button 
+                        className="btn btn-sm btn-outline-danger d-flex align-items-center gap-1"
+                        onClick={deleteAllRepositoryItems}
+                        title="Move all items in current directory to Recycle Bin"
+                      >
+                        <i className="bi bi-trash3 text-danger"></i> Purge All
                       </button>
                     </div>
 
                   </div>
 
-                  {/* Interactive Breadcrumb Bar */}
-                  <div className="mt-3 pt-2 border-top border-secondary d-flex align-items-center justify-content-between">
-                    <nav aria-label="breadcrumb">
-                      <ol className="breadcrumb mb-0 font-monospace small">
-                        {(explorerData.breadcrumbs || []).map((bc, idx) => {
-                          const isLast = idx === (explorerData.breadcrumbs.length - 1);
-                          return (
-                            <li key={idx} className={`breadcrumb-item ${isLast ? 'active text-success fw-bold' : ''}`}>
-                              {isLast ? (
-                                <span>{bc.name}</span>
-                              ) : (
-                                <span 
-                                  className="text-info cursor-pointer text-decoration-underline" 
-                                  style={{ cursor: 'pointer' }}
-                                  onClick={() => setCurrentFolderId(bc.id)}
-                                >
-                                  {bc.name}
-                                </span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ol>
-                    </nav>
+                  {/* Windows File Manager Address Bar */}
+                  <div className="mt-3 pt-2 border-top border-secondary-subtle d-flex align-items-center justify-content-between bg-light px-3 py-2 rounded-2 border">
+                    <div className="d-flex align-items-center gap-2 font-monospace small">
+                      <i className="bi bi-folder2-open text-warning fs-5"></i>
+                      <span className="text-secondary fw-semibold">Address:</span>
+                      <nav aria-label="breadcrumb">
+                        <ol className="breadcrumb mb-0">
+                          {(explorerData.breadcrumbs || []).map((bc, idx) => {
+                            const isLast = idx === (explorerData.breadcrumbs.length - 1);
+                            return (
+                              <li key={idx} className={`breadcrumb-item ${isLast ? 'active text-success fw-bold' : ''}`}>
+                                {isLast ? (
+                                  <span>{bc.name}</span>
+                                ) : (
+                                  <span 
+                                    className="text-primary cursor-pointer text-decoration-underline fw-medium" 
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => setCurrentFolderId(bc.id)}
+                                  >
+                                    {bc.name}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </nav>
+                    </div>
 
                     <div className="font-monospace small text-secondary">
-                      Current Path: <span className="text-white bg-dark px-2 py-1 rounded border border-secondary">{explorerData.current_logical_path}</span>
+                      Logical Path: <span className="text-dark bg-white px-2 py-1 rounded border fw-bold">{explorerData.current_logical_path}</span>
                     </div>
                   </div>
                 </div>
@@ -952,7 +1038,7 @@ const Dashboard = () => {
                   <div className="col-12 col-lg-7">
                     <div className="glass-panel p-4 h-100">
                       <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h5 className="fw-bold text-white mb-0 font-monospace">
+                        <h5 className="fw-bold text-dark mb-0 font-monospace">
                           {selectedRepoType === 'team' ? '🏢 Team Files & Folders' : '🔒 Personal Workspace'}
                         </h5>
                         <span className="text-secondary small font-monospace">
@@ -970,28 +1056,39 @@ const Dashboard = () => {
                           <svg width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="mb-2 opacity-50">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                           </svg>
-                          <p className="fw-semibold text-white mb-1">This folder is empty</p>
+                          <p className="fw-semibold text-dark mb-1">This folder is empty</p>
                           <p className="small text-secondary mb-3">Upload files or create subfolders to organize enterprise documents.</p>
-                          <button className="btn btn-sm btn-premium-primary" onClick={() => setShowUploadModal(true)}>
-                            Upload Files Now
-                          </button>
+                          <div className="d-flex justify-content-center gap-2 mt-3">
+                            <button 
+                              className="btn btn-sm btn-premium-primary d-flex align-items-center gap-1" 
+                              onClick={() => openUploadModal('file', currentFolderId, explorerData.current_logical_path)}
+                            >
+                              <i className="bi bi-upload text-white"></i> Upload File Here
+                            </button>
+                            <button 
+                              className="btn btn-sm btn-outline-success d-flex align-items-center gap-1" 
+                              onClick={() => openNewFolderModal(currentFolderId, explorerData.current_logical_path)}
+                            >
+                              <i className="bi bi-folder-plus text-success"></i> + Create Subfolder Here
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="table-responsive">
                           <table className="table table-hover align-middle table-sm border-0">
-                            <thead className="table-dark text-white fw-bold font-monospace border-bottom border-secondary">
+                            <thead className="bg-light text-dark fw-bold font-monospace border-bottom border-secondary">
                               <tr className="small">
-                                <th className="text-white">Item Name</th>
-                                <th className="text-white">Type</th>
-                                <th className="text-white">Logical Path</th>
-                                <th className="text-end text-white">Actions</th>
+                                <th className="text-dark">Item Name</th>
+                                <th className="text-dark">Type</th>
+                                <th className="text-dark">Logical Path</th>
+                                <th className="text-end text-dark">Actions</th>
                               </tr>
                             </thead>
                             <tbody className="small font-monospace">
                               {/* Parent Folder Row if not root */}
                               {currentFolderId && (
                                 <tr 
-                                  className="cursor-pointer bg-dark bg-opacity-25" 
+                                  className="cursor-pointer bg-light" 
                                   style={{ cursor: 'pointer' }}
                                   onClick={() => {
                                     const bcs = explorerData.breadcrumbs || [];
@@ -1002,8 +1099,8 @@ const Dashboard = () => {
                                     }
                                   }}
                                 >
-                                  <td colSpan="4" className="text-info fw-bold">
-                                    <i className="bi bi-arrow-up-circle-fill text-info me-2 fs-5"></i> .. (Parent Folder)
+                                  <td colSpan="4" className="text-success fw-bold">
+                                    <i className="bi bi-arrow-up-circle-fill text-success me-2 fs-5"></i> .. (Parent Folder)
                                   </td>
                                 </tr>
                               )}
@@ -1012,21 +1109,28 @@ const Dashboard = () => {
                               {explorerData.subfolders?.map((folder) => (
                                 <tr 
                                   key={folder.id} 
-                                  className="cursor-pointer align-middle"
+                                  className="cursor-pointer align-middle hover-shadow"
                                   style={{ cursor: 'pointer' }}
                                   onClick={() => setCurrentFolderId(folder.id)}
                                 >
-                                  <td className="fw-bold text-warning text-truncate" style={{ maxWidth: '200px' }}>
+                                  <td className="fw-bold text-dark text-truncate" style={{ maxWidth: '220px' }}>
                                     <i className="bi bi-folder-fill text-warning me-2 fs-5"></i> {folder.name}
                                   </td>
                                   <td><span className="badge bg-warning text-dark fw-bold">FOLDER</span></td>
-                                  <td className="text-light text-truncate" style={{ maxWidth: '180px' }} title={folder.logical_path}>
+                                  <td className="text-secondary text-truncate" style={{ maxWidth: '180px' }} title={folder.logical_path}>
                                     {folder.logical_path}
                                   </td>
                                   <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                                    <div className="d-flex gap-1 justify-content-end">
+                                    <div className="d-flex gap-1 justify-content-end align-items-center">
                                       <button 
-                                        className="btn btn-sm btn-outline-info py-0 px-2"
+                                        className="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold"
+                                        onClick={() => setCurrentFolderId(folder.id)}
+                                        title="Open Folder"
+                                      >
+                                        Open
+                                      </button>
+                                      <button 
+                                        className="btn btn-sm btn-outline-secondary py-0 px-2"
                                         onClick={() => copyLogicalPath(folder.logical_path)}
                                         title="Copy folder logical path"
                                       >
@@ -1054,11 +1158,11 @@ const Dashboard = () => {
                                     className={`cursor-pointer ${selectedDoc?.id === doc.id ? 'table-active' : ''}`}
                                     onClick={() => fetchDocumentSubDetails(doc)}
                                   >
-                                    <td className="fw-medium text-white text-truncate" style={{ maxWidth: '200px' }}>
+                                    <td className="fw-medium text-dark text-truncate" style={{ maxWidth: '200px' }}>
                                       {icon} {doc.title}
                                     </td>
-                                    <td><span className="badge bg-secondary text-white fw-bold">{ext}</span></td>
-                                    <td className="text-light text-truncate" style={{ maxWidth: '180px' }} title={doc.logical_path}>
+                                    <td><span className="badge bg-light text-dark border border-secondary fw-bold">{ext}</span></td>
+                                    <td className="text-secondary text-truncate" style={{ maxWidth: '180px' }} title={doc.logical_path}>
                                       {doc.logical_path}
                                     </td>
                                     <td className="text-end" onClick={(e) => e.stopPropagation()}>
@@ -1102,8 +1206,8 @@ const Dashboard = () => {
                         <>
                           <div className="d-flex justify-content-between align-items-start mb-3 border-bottom border-secondary pb-3">
                             <div>
-                              <h5 className="fw-bold text-white mb-1">{getFileIcon(selectedDoc.title)} {selectedDoc.title}</h5>
-                              <span className="badge bg-dark border border-secondary text-info font-monospace small">
+                              <h5 className="fw-bold text-dark mb-1">{getFileIcon(selectedDoc.title)} {selectedDoc.title}</h5>
+                              <span className="badge bg-light border border-secondary text-success font-monospace small">
                                 {selectedDoc.logical_path}
                               </span>
                             </div>
@@ -1113,29 +1217,29 @@ const Dashboard = () => {
                           </div>
 
                           {/* High-Contrast Styled File Details Box */}
-                          <div className="bg-dark p-3 rounded-3 border border-secondary mb-3">
+                          <div className="bg-light p-3 rounded-3 border border-secondary mb-3">
                             <div className="d-flex flex-column gap-2 font-monospace small">
                               <div className="d-flex justify-content-between align-items-center">
-                                <span className="text-light fw-medium">File Format:</span>
-                                <span className="text-info fw-bold">
+                                <span className="text-dark fw-medium">File Format:</span>
+                                <span className="text-success fw-bold">
                                   {getFileIcon(selectedDoc.title)} {(selectedDoc.title || '').split('.').pop()?.toUpperCase() || 'FILE'}
                                 </span>
                               </div>
                               <div className="d-flex justify-content-between align-items-center">
-                                <span className="text-light fw-medium">Version:</span>
+                                <span className="text-dark fw-medium">Version:</span>
                                 <span className="text-success fw-bold">v{selectedDoc.current_version}</span>
                               </div>
                               <div className="d-flex justify-content-between align-items-center">
-                                <span className="text-light fw-medium">Canonical Records:</span>
+                                <span className="text-dark fw-medium">Canonical Records:</span>
                                 <span className="text-warning fw-bold">{selectedDoc.record_count}</span>
                               </div>
                               <div className="d-flex justify-content-between align-items-center">
-                                <span className="text-light fw-medium">File Size:</span>
-                                <span className="text-white fw-bold">{(selectedDoc.repository_size / 1024).toFixed(2)} KB</span>
+                                <span className="text-dark fw-medium">File Size:</span>
+                                <span className="text-dark fw-bold">{(selectedDoc.repository_size / 1024).toFixed(2)} KB</span>
                               </div>
                               <div className="d-flex justify-content-between align-items-center">
-                                <span className="text-light fw-medium">Last Sync:</span>
-                                <span className="text-white fw-semibold">{new Date(selectedDoc.last_sync).toLocaleString()}</span>
+                                <span className="text-dark fw-medium">Last Sync:</span>
+                                <span className="text-dark fw-semibold">{new Date(selectedDoc.last_sync).toLocaleString()}</span>
                               </div>
                             </div>
                           </div>
@@ -1151,23 +1255,23 @@ const Dashboard = () => {
 
                           {/* Technical Details Accordion */}
                           <div className="accordion mt-auto" id="techAccordion">
-                            <div className="accordion-item bg-dark border-secondary">
+                            <div className="accordion-item bg-light border-secondary">
                               <h2 className="accordion-header">
-                                <button className="accordion-button collapsed py-2 px-3 small text-secondary bg-dark text-white border-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#techCollapse">
+                                <button className="accordion-button collapsed py-2 px-3 small text-dark bg-light border-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#techCollapse">
                                   Technical Details & JSONB Records
                                 </button>
                               </h2>
                               <div id="techCollapse" className="accordion-collapse collapse" data-bs-parent="#techAccordion">
-                                <div className="accordion-body p-3 font-monospace small text-secondary bg-dark">
+                                <div className="accordion-body p-3 font-monospace small text-dark bg-light">
                                   <div className="mb-2">Document ID: {selectedDoc.id}</div>
                                   <div className="mb-2">Physical Size: {(selectedDoc.repository_size / 1024).toFixed(2)} KB</div>
                                   
                                   {/* Sub-tabs */}
-                                  <ul className="nav nav-pills nav-fill border border-secondary rounded overflow-hidden mb-3 bg-dark bg-opacity-50 mt-3">
+                                  <ul className="nav nav-pills nav-fill border border-secondary rounded overflow-hidden mb-3 bg-light mt-3">
                                     {['records', 'versions', 'audit', 'metadata'].map((tab) => (
                                       <li className="nav-item" key={tab}>
                                         <button 
-                                          className={`nav-link text-white py-1 rounded-0 border-0 ${activeDetailsTab === tab ? 'btn-premium-primary text-white' : 'bg-transparent text-secondary'}`}
+                                          className={`nav-link py-1 rounded-0 border-0 ${activeDetailsTab === tab ? 'btn-premium-primary text-white' : 'bg-transparent text-dark fw-semibold'}`}
                                           onClick={() => setActiveDetailsTab(tab)}
                                           style={{ fontSize: '0.75rem' }}
                                         >
@@ -1182,7 +1286,7 @@ const Dashboard = () => {
                                       <div className="d-flex flex-column gap-2">
                                         {selectedDocDetails.records.length > 0 ? (
                                           selectedDocDetails.records.map((rec) => (
-                                            <div key={rec.id} className="bg-light rounded p-2 border border-secondary font-monospace position-relative">
+                                            <div key={rec.id} className="bg-white rounded p-2 border border-secondary font-monospace position-relative">
                                               <div className="d-flex justify-content-between mb-1">
                                                 <span className="text-success small">{rec.entity_type.toUpperCase()}</span>
                                                 <div className="d-flex gap-2">
@@ -1292,8 +1396,8 @@ const Dashboard = () => {
                   <div className="glass-panel p-4 border border-info rounded-3 mt-4">
                     <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary">
                       <div className="d-flex align-items-center gap-2">
-                        <span className="badge bg-info text-black font-monospace text-uppercase">{previewData?.file_type || 'Loading'}</span>
-                        <h5 className="fw-bold text-white mb-0">{previewingDoc.title}</h5>
+                        <span className="badge bg-info text-dark font-monospace text-uppercase">{previewData?.file_type || 'Loading'}</span>
+                        <h5 className="fw-bold text-dark mb-0">{previewingDoc.title}</h5>
                       </div>
                       <div className="d-flex gap-2">
                         <button className="btn btn-premium-secondary btn-sm py-1 px-3" onClick={() => downloadFileSecurely(previewingDoc)}>
@@ -1436,7 +1540,7 @@ const Dashboard = () => {
             ) : (
               /* Global Database Records JSONB Query Workspace */
               <div className="glass-panel p-4">
-                <h5 className="fw-bold text-white mb-3">Database Records Lookup (JSONB Engine)</h5>
+                <h5 className="fw-bold text-dark mb-3">Database Records Lookup (JSONB Engine)</h5>
                 
                 <div className="row g-3 mb-4">
                   <div className="col-12 col-md-3">
@@ -1619,24 +1723,28 @@ const Dashboard = () => {
 
       {/* CREATE NEW FOLDER MODAL */}
       {showNewFolderModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} tabIndex="-1">
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content bg-dark border border-secondary text-white">
+            <div className="modal-content bg-white border border-secondary text-dark shadow-lg">
               <div className="modal-header border-secondary">
-                <h5 className="modal-title font-monospace fw-bold">➕ Create New Folder</h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowNewFolderModal(false)}></button>
+                <h5 className="modal-title font-monospace fw-bold text-dark">➕ Create New Folder / Subfolder</h5>
+                <button type="button" className="btn-close" onClick={() => setShowNewFolderModal(false)}></button>
               </div>
               <form onSubmit={handleCreateFolder}>
                 <div className="modal-body">
-                  <p className="small text-secondary font-monospace">
-                    Parent Path: <span className="text-info">{explorerData.current_logical_path}</span>
-                  </p>
+                  <div className="alert alert-success py-2 px-3 mb-3 border-0 small font-monospace d-flex align-items-center gap-2">
+                    <i className="bi bi-folder2-open text-success fs-5"></i>
+                    <div>
+                      <div>Target Parent Path: <strong className="text-dark">{targetFolderPath || explorerData.current_logical_path}</strong></div>
+                      <div className="text-secondary extra-small">{selectedRepoType.toUpperCase()} REPOSITORY ({targetFolderId ? 'Subfolder Level' : 'Root Level'})</div>
+                    </div>
+                  </div>
                   <div className="mb-3">
-                    <label className="form-label text-secondary small font-monospace">Folder Name</label>
+                    <label className="form-label text-secondary small font-monospace font-semibold">Folder Name</label>
                     <input 
                       type="text" 
                       className="form-control bg-white text-dark border-secondary font-monospace"
-                      placeholder="e.g. Projects, Riverside, Reports"
+                      placeholder="e.g. Subfolder, Engineering, Reports"
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
                       required
@@ -1646,7 +1754,7 @@ const Dashboard = () => {
                 </div>
                 <div className="modal-footer border-secondary">
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowNewFolderModal(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-success btn-sm font-monospace" disabled={creatingFolder}>
+                  <button type="submit" className="btn btn-success btn-sm font-monospace text-white" disabled={creatingFolder}>
                     {creatingFolder ? 'Creating...' : 'Create Folder'}
                   </button>
                 </div>
@@ -1658,19 +1766,23 @@ const Dashboard = () => {
 
       {/* UPLOAD FILE / FOLDER MODAL & INGESTION PIPELINE MONITOR */}
       {showUploadModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }} tabIndex="-1">
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-dark border border-secondary text-white">
+            <div className="modal-content bg-white border border-secondary text-dark shadow-lg">
               <div className="modal-header border-secondary">
-                <h5 className="modal-title font-monospace fw-bold">
+                <h5 className="modal-title font-monospace fw-bold text-dark">
                   {uploadMode === 'file' ? '📤 Document Upload & Ingestion Pipeline' : '📁 Folder Tree Upload & Ingestion'}
                 </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => { setShowUploadModal(false); setPipelineResult(null); setPipelineError(''); }}></button>
+                <button type="button" className="btn-close" onClick={() => { setShowUploadModal(false); setPipelineResult(null); setPipelineError(''); }}></button>
               </div>
               
               <div className="modal-body">
-                <div className="mb-3 font-monospace small text-secondary">
-                  Target Logical Location: <span className="text-success fw-bold">{explorerData.current_logical_path}</span> ({selectedRepoType.toUpperCase()} REPOSITORY)
+                <div className="alert alert-info py-2 px-3 mb-3 border-0 small font-monospace d-flex align-items-center gap-2">
+                  <i className="bi bi-geo-alt-fill text-info fs-5"></i>
+                  <div>
+                    <div>Target Destination: <strong className="text-dark">{targetFolderPath || explorerData.current_logical_path}</strong></div>
+                    <div className="text-secondary extra-small">{selectedRepoType.toUpperCase()} REPOSITORY</div>
+                  </div>
                 </div>
 
                 {pipelineError && (
@@ -1681,14 +1793,19 @@ const Dashboard = () => {
 
                 {processing ? (
                   <div className="text-center py-4">
-                    <div className="spinner-border text-info mb-3" role="status" style={{ width: '3rem', height: '3rem' }}></div>
-                    <h6 className="fw-bold text-info font-monospace">{uploadProgress || 'Ingesting documents through 8-stage pipeline...'}</h6>
+                    <div className="spinner-border text-success mb-3" role="status" style={{ width: '3rem', height: '3rem' }}></div>
+                    <h6 className="fw-bold text-success font-monospace">{uploadProgress || 'Ingesting documents through 8-stage pipeline...'}</h6>
                     <p className="small text-secondary mb-0">Validating signature, running OCR parsing, mapping schema, and updating vector embeddings...</p>
                   </div>
                 ) : pipelineResult ? (
                   <div className="d-flex flex-column gap-3">
-                    <div className={`alert ${pipelineResult.processing_status === 'COMPLETED' ? 'alert-success' : 'alert-danger'} py-2 mb-2 d-flex justify-content-between align-items-center`}>
-                      <span className="fw-bold font-monospace">STATUS: {pipelineResult.processing_status}</span>
+                    <div className={`alert ${pipelineResult.processing_status === 'COMPLETED' ? 'alert-success' : (pipelineResult.processing_status === 'PROCESSING' ? 'alert-info' : 'alert-danger')} py-2 mb-2 d-flex justify-content-between align-items-center`}>
+                      <span className="fw-bold font-monospace d-flex align-items-center gap-2">
+                        {pipelineResult.processing_status === 'PROCESSING' && (
+                          <span className="spinner-border spinner-border-sm text-info" role="status"></span>
+                        )}
+                        STATUS: {pipelineResult.processing_status}
+                      </span>
                       <button className="btn btn-sm btn-outline-dark" onClick={() => { setShowUploadModal(false); setPipelineResult(null); }}>
                         Close & View in Explorer
                       </button>
@@ -1697,7 +1814,7 @@ const Dashboard = () => {
                     <ul className="nav nav-tabs border-secondary mb-2">
                       <li className="nav-item">
                         <button 
-                          className={`nav-link bg-transparent border-0 border-bottom text-white ${resultTab === 'record' ? 'border-success active text-success font-bold' : 'border-transparent text-secondary'}`}
+                          className={`nav-link bg-transparent border-0 border-bottom text-dark ${resultTab === 'record' ? 'border-success active text-success font-bold' : 'border-transparent text-secondary'}`}
                           onClick={() => setResultTab('record')}
                         >
                           Standardized Record
@@ -1705,7 +1822,7 @@ const Dashboard = () => {
                       </li>
                       <li className="nav-item">
                         <button 
-                          className={`nav-link bg-transparent border-0 border-bottom text-white ${resultTab === 'metadata' ? 'border-success active text-success font-bold' : 'border-transparent text-secondary'}`}
+                          className={`nav-link bg-transparent border-0 border-bottom text-dark ${resultTab === 'metadata' ? 'border-success active text-success font-bold' : 'border-transparent text-secondary'}`}
                           onClick={() => setResultTab('metadata')}
                         >
                           Pipeline Metadata
@@ -1713,7 +1830,7 @@ const Dashboard = () => {
                       </li>
                       <li className="nav-item">
                         <button 
-                          className={`nav-link bg-transparent border-0 border-bottom text-white ${resultTab === 'stages' ? 'border-success active text-success font-bold' : 'border-transparent text-secondary'}`}
+                          className={`nav-link bg-transparent border-0 border-bottom text-dark ${resultTab === 'stages' ? 'border-success active text-success font-bold' : 'border-transparent text-secondary'}`}
                           onClick={() => setResultTab('stages')}
                         >
                           Orchestration Logs
@@ -1723,17 +1840,17 @@ const Dashboard = () => {
 
                     <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                       {resultTab === 'record' && (
-                        <pre className="text-success font-monospace small bg-black p-3 rounded">
+                        <pre className="text-success font-monospace small bg-light p-3 rounded border">
                           {JSON.stringify(pipelineResult.pipeline_result?.standardized_record || {}, null, 2)}
                         </pre>
                       )}
                       {resultTab === 'metadata' && (
-                        <pre className="text-warning font-monospace small bg-black p-3 rounded">
+                        <pre className="text-dark font-monospace small bg-light p-3 rounded border">
                           {JSON.stringify(pipelineResult.pipeline_result?.metadata || {}, null, 2)}
                         </pre>
                       )}
                       {resultTab === 'stages' && (
-                        <pre className="text-info font-monospace small bg-black p-3 rounded">
+                        <pre className="text-dark font-monospace small bg-light p-3 rounded border">
                           {JSON.stringify(pipelineResult.pipeline_result?.stage_execution || {}, null, 2)}
                         </pre>
                       )}
@@ -1744,8 +1861,7 @@ const Dashboard = () => {
                     {/* Drag & Drop zone for single file */}
                     {uploadMode === 'file' ? (
                       <div 
-                        className={`border border-2 border-dashed rounded-3 p-4 text-center mb-3 position-relative ${dragActive ? 'border-info' : 'border-secondary'}`}
-                        style={{ backgroundColor: dragActive ? 'rgba(6, 182, 212, 0.05)' : 'rgba(255,255,255,0.02)' }}
+                        className={`border border-2 border-dashed rounded-3 p-4 text-center mb-3 position-relative ${dragActive ? 'border-success bg-light' : 'border-secondary bg-light'}`}
                         onDragEnter={handleDrag}
                         onDragLeave={handleDrag}
                         onDragOver={handleDrag}
@@ -1757,28 +1873,28 @@ const Dashboard = () => {
                           onChange={(e) => { if (e.target.files?.[0]) setSelectedFile(e.target.files[0]); }}
                           style={{ cursor: 'pointer' }}
                         />
-                        <svg className="mb-2 text-secondary" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="mb-2 text-success" width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
                         {selectedFile ? (
                           <div>
-                            <p className="text-white fw-medium mb-0">{selectedFile.name}</p>
+                            <p className="text-dark fw-medium mb-0">{selectedFile.name}</p>
                             <p className="text-secondary small font-monospace">{(selectedFile.size / 1024).toFixed(2)} KB</p>
                           </div>
                         ) : (
                           <div>
-                            <p className="text-white mb-0">Drag & drop document here or click to browse</p>
+                            <p className="text-dark mb-0 fw-semibold">Drag & drop document here or click to browse</p>
                             <p className="text-secondary small mb-0">(PDF, Excel, CSV, JSON, Images, Plain Text)</p>
                           </div>
                         )}
                       </div>
                     ) : (
                       /* Folder upload input */
-                      <div className="mb-3 p-4 border border-secondary rounded-3 bg-black">
-                        <label className="form-label text-info fw-bold font-monospace">Select Local Directory for Tree Ingestion</label>
+                      <div className="mb-3 p-4 border border-secondary rounded-3 bg-light">
+                        <label className="form-label text-success fw-bold font-monospace">Select Local Directory for Tree Ingestion</label>
                         <input 
                           type="file" 
-                          className="form-control bg-dark text-white border-secondary"
+                          className="form-control bg-white text-dark border-secondary"
                           webkitdirectory="true"
                           directory=""
                           multiple
@@ -1787,7 +1903,7 @@ const Dashboard = () => {
                           }}
                         />
                         {folderFiles.length > 0 && (
-                          <div className="mt-2 text-success font-monospace small">
+                          <div className="mt-2 text-success font-monospace small fw-bold">
                             ✓ Ready to upload folder containing {folderFiles.length} files. Subfolder structures will be preserved automatically!
                           </div>
                         )}
@@ -1797,7 +1913,7 @@ const Dashboard = () => {
                     <div className="mb-3">
                       <label className="form-label text-secondary small font-monospace">Parser Strategy</label>
                       <select 
-                        className="form-select bg-dark border-secondary text-white"
+                        className="form-select bg-white border-secondary text-dark"
                         value={parserType}
                         onChange={(e) => setParserType(e.target.value)}
                       >
@@ -1812,7 +1928,7 @@ const Dashboard = () => {
 
                     <div className="d-flex justify-content-end gap-2 mt-4">
                       <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowUploadModal(false)}>Cancel</button>
-                      <button type="submit" className="btn btn-success btn-sm font-monospace">
+                      <button type="submit" className="btn btn-success btn-sm font-monospace text-white">
                         Start Upload & Ingestion
                       </button>
                     </div>
@@ -1826,14 +1942,14 @@ const Dashboard = () => {
 
       {/* RECYCLE BIN SOFT-DELETION MODAL */}
       {showRecycleBin && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }} tabIndex="-1">
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex="-1">
           <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-dark border border-warning text-white">
+            <div className="modal-content bg-white border border-warning text-dark shadow-lg">
               <div className="modal-header border-secondary">
-                <h5 className="modal-title font-monospace fw-bold text-warning d-flex align-items-center gap-2">
+                <h5 className="modal-title font-monospace fw-bold text-dark d-flex align-items-center gap-2">
                   <i className="bi bi-trash-fill text-warning"></i> Recycle Bin (Soft-Deleted Items)
                 </h5>
-                <button type="button" className="btn-close btn-close-white" onClick={() => setShowRecycleBin(false)}></button>
+                <button type="button" className="btn-close" onClick={() => setShowRecycleBin(false)}></button>
               </div>
               <div className="modal-body" style={{ maxHeight: '500px', overflowY: 'auto' }}>
                 {loadingRecycleBin ? (
@@ -1842,7 +1958,7 @@ const Dashboard = () => {
                     Loading soft-deleted items...
                   </div>
                 ) : (recycleBinData.folders?.length === 0 && recycleBinData.documents?.length === 0) ? (
-                  <div className="text-center py-4 text-light-50 font-monospace">
+                  <div className="text-center py-4 text-secondary font-monospace">
                     Recycle Bin is empty. No deleted files or folders found.
                   </div>
                 ) : (
@@ -1852,11 +1968,11 @@ const Dashboard = () => {
                     {recycleBinData.folders?.length > 0 && (
                       <div>
                         <h6 className="text-warning font-monospace fw-bold mb-2">Deleted Folders</h6>
-                        <ul className="list-group list-group-flush bg-dark rounded border border-secondary font-monospace small">
+                        <ul className="list-group list-group-flush bg-white rounded border border-secondary font-monospace small">
                           {recycleBinData.folders.map(f => (
-                            <li key={f.id} className="list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center">
+                            <li key={f.id} className="list-group-item bg-white text-dark border-secondary d-flex justify-content-between align-items-center">
                               <div>
-                                <i className="bi bi-folder-fill text-warning me-2 fs-5"></i> <strong>{f.name}</strong> <span className="text-light ms-2">({f.logical_path})</span>
+                                <i className="bi bi-folder-fill text-warning me-2 fs-5"></i> <strong>{f.name}</strong> <span className="text-secondary ms-2">({f.logical_path})</span>
                               </div>
                               <div className="d-flex gap-2">
                                 <button className="btn btn-sm btn-outline-success py-0 px-2" onClick={() => handleRestoreItem('folder', f.id)}>
@@ -1876,11 +1992,11 @@ const Dashboard = () => {
                     {recycleBinData.documents?.length > 0 && (
                       <div>
                         <h6 className="text-warning font-monospace fw-bold mb-2">Deleted Documents</h6>
-                        <ul className="list-group list-group-flush bg-dark rounded border border-secondary font-monospace small">
+                        <ul className="list-group list-group-flush bg-white rounded border border-secondary font-monospace small">
                           {recycleBinData.documents.map(d => (
-                            <li key={d.id} className="list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center">
+                            <li key={d.id} className="list-group-item bg-white text-dark border-secondary d-flex justify-content-between align-items-center">
                               <div>
-                                {getFileIcon(d.title)} <strong>{d.title}</strong> <span className="text-light ms-2">({d.logical_path})</span>
+                                {getFileIcon(d.title)} <strong>{d.title}</strong> <span className="text-secondary ms-2">({d.logical_path})</span>
                               </div>
                               <div className="d-flex gap-2">
                                 <button className="btn btn-sm btn-outline-success py-0 px-2" onClick={() => handleRestoreItem('document', d.id)}>

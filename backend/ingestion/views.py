@@ -29,9 +29,23 @@ class DocumentUploadView(APIView):
         uploaded_file = serializer.validated_data['file']
         
         try:
-            # Instantiate the upload service
+            # Instantiate the upload service with retry resilience for transient SQLite locks
             upload_service = DocumentUploadService()
-            doc = upload_service.execute(uploaded_file, request.user)
+            doc = None
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    doc = upload_service.execute(uploaded_file, request.user)
+                    break
+                except Exception as exc:
+                    if 'database is locked' in str(exc).lower() and attempt < max_retries - 1:
+                        import time
+                        from django import db
+                        db.connections.close_all()
+                        time.sleep(0.15)
+                        uploaded_file.seek(0)
+                    else:
+                        raise exc
             
             # Save repository type visibility scope and folder path in metadata
             repository_type = serializer.validated_data.get('repository_type', 'team')
@@ -69,18 +83,26 @@ class DocumentUploadView(APIView):
             }, status=status.HTTP_201_CREATED)
             
         except DjangoValidationError as e:
-            logger.warning(f"File upload validation failed: {str(e)}")
+            msg = e.message if hasattr(e, 'message') else (', '.join(e.messages) if hasattr(e, 'messages') else str(e))
+            logger.warning(f"File upload validation failed: {msg}")
             return Response({
                 "success": False,
                 "status_code": status.HTTP_400_BAD_REQUEST,
-                "message": e.message if hasattr(e, 'message') else str(e),
+                "message": msg,
                 "data": {},
-                "errors": e.message_dict if hasattr(e, 'message_dict') else [str(e)],
+                "errors": [msg],
                 "timestamp": timezone.now().isoformat()
             }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"Critical error during document upload view handler: {str(e)}", exc_info=True)
-            raise e
+            logger.error(f"Error during document upload view handler: {str(e)}", exc_info=True)
+            return Response({
+                "success": False,
+                "status_code": status.HTTP_400_BAD_REQUEST,
+                "message": str(e),
+                "data": {},
+                "errors": [str(e)],
+                "timestamp": timezone.now().isoformat()
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class DocumentStatusView(APIView):

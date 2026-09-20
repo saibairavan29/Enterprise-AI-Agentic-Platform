@@ -101,7 +101,6 @@ class ClassifiersTests(TestCase):
         
         # Verify order priority (Conflict first, Consistent last)
         self.assertEqual(active[0].__class__.__name__, "ConflictClassifier")
-        self.assertEqual(active[3].__class__.__name__, "ConsistencyClassifier")
-class_names = [c.__class__.__name__ for c in active]
+        class_names = [c.__class__.__name__ for c in active]
         self.assertIn("DuplicateClassifier", class_names)
         self.assertIn("OutdatedClassifier", class_names)

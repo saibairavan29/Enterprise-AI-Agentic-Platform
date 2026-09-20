@@ -431,7 +431,9 @@ class StructuredAnalyticsEngine:
         # -------------------------------------------------------------
         if not employee_ranking_result and group_col_target:
             dept_counts = {}
+            dept_sums = {}
             dept_record_ids = {}
+            dept_values = {}
             dept_sub_breakdown = {}
             eval_recs = filtered_records if filtered_records else unique_records
 
@@ -443,25 +445,47 @@ class StructuredAnalyticsEngine:
                     if r_id:
                         dept_record_ids.setdefault(g_val, []).append(r_id)
 
+                    if primary_metric_col:
+                        num_val, err = self._clean_number(r.get(primary_metric_col))
+                        if num_val is not None:
+                            dept_sums[g_val] = dept_sums.get(g_val, 0.0) + num_val
+                            dept_values.setdefault(g_val, []).append(num_val)
+                        elif err:
+                            exclusion_reasons_log.append(f"Record {r_id or 'Row'}: {err}")
+
                     if sub_col:
                         sub_val = str(r.get(sub_col) or "Unknown").strip()
                         dept_sub_breakdown.setdefault(g_val, {}).setdefault(sub_val, 0)
                         dept_sub_breakdown[g_val][sub_val] += 1
 
             if dept_counts:
-                top_group = max(dept_counts.items(), key=lambda x: x[1])
+                if dept_sums:
+                    dept_avgs = {g: round(dept_sums[g] / max(1, len(dept_values.get(g, []))), 2) for g in dept_sums}
+                    if plan_op == "MIN":
+                        top_group_sum = min(dept_sums.items(), key=lambda x: x[1])
+                        top_group_avg = min(dept_avgs.items(), key=lambda x: x[1])
+                    else:
+                        top_group_sum = max(dept_sums.items(), key=lambda x: x[1])
+                        top_group_avg = max(dept_avgs.items(), key=lambda x: x[1])
+                else:
+                    dept_sums = dept_counts
+                    dept_avgs = dept_counts
+                    top_group_sum = max(dept_counts.items(), key=lambda x: x[1])
+                    top_group_avg = top_group_sum
+
                 grouped_aggregation_result = {
                     "group_column": group_col_target,
                     "sub_column": sub_col,
                     "metric_field": primary_metric_col or "Record_Count",
                     "filter_applied": plan_filters,
-                    "dept_sums": dept_counts,
-                    "dept_avgs": dept_counts,
+                    "dept_sums": dept_sums,
+                    "dept_avgs": dept_avgs,
                     "dept_counts": dept_counts,
                     "dept_record_ids": dept_record_ids,
+                    "dept_values": dept_values,
                     "dept_sub_breakdown": dept_sub_breakdown,
-                    "top_dept_by_sum": top_group,
-                    "top_dept_by_avg": top_group
+                    "top_dept_by_sum": top_group_sum,
+                    "top_dept_by_avg": top_group_avg
                 }
 
         # 4. Construct Authoritative Factual Statements & Evidence
@@ -492,25 +516,64 @@ class StructuredAnalyticsEngine:
         if grouped_aggregation_result:
             g_info = grouped_aggregation_result
             top_grp_name = g_info['top_dept_by_sum'][0]
+            top_grp_val = g_info['top_dept_by_sum'][1]
             top_grp_ids = g_info.get('dept_record_ids', {}).get(top_grp_name, [])
-            top_ids_str = f" (Supporting Record IDs: {', '.join(top_grp_ids)})" if top_grp_ids else ""
+            top_grp_vals = g_info.get('dept_values', {}).get(top_grp_name, [])
+            top_ids_str = f" [Supporting Record IDs: {', '.join(top_grp_ids)}]" if top_grp_ids else ""
+
+            is_currency = primary_metric_col and any(k in primary_metric_col.lower() for k in ["sales", "revenue", "salary", "income", "amount", "price", "cost", "inr", "usd", "spend", "pay"])
+            
+            def fmt_val(v):
+                if isinstance(v, (int, float)):
+                    v_num_str = f"{v:,.2f}".rstrip('0').rstrip('.')
+                    if is_currency:
+                        if primary_metric_col and ("inr" in primary_metric_col.lower() or "inr" in query_lower):
+                            return f"₹{v_num_str}"
+                        elif primary_metric_col and ("usd" in primary_metric_col.lower() or "usd" in query_lower):
+                            return f"${v_num_str}"
+                        return f"₹{v_num_str}" if "inr" in query_lower or "inr" in doc_title.lower() else f"${v_num_str}"
+                    return v_num_str
+                return str(v)
+
+            top_val_formatted = fmt_val(top_grp_val)
 
             group_summaries = []
-            for d, cnt in sorted(g_info['dept_counts'].items(), key=lambda x: x[1], reverse=True):
+            sorted_groups = sorted(g_info['dept_sums'].items(), key=lambda x: x[1], reverse=(plan_op != "MIN"))
+            
+            for d, sum_v in sorted_groups:
                 g_ids = g_info.get('dept_record_ids', {}).get(d, [])
+                g_vals = g_info.get('dept_values', {}).get(d, [])
+                g_cnt = g_info['dept_counts'].get(d, len(g_vals) or 1)
+                
                 ids_part = f" [Supporting Record IDs: {', '.join(g_ids)}]" if g_ids else ""
+                vals_part = f" [Individual Row Values: {', '.join(fmt_val(v) for v in g_vals)}]" if g_vals else ""
+                
                 sub_part = ""
                 if g_info.get('sub_column') and d in g_info.get('dept_sub_breakdown', {}):
                     sub_dict = g_info['dept_sub_breakdown'][d]
                     sub_part = f" ({g_info['sub_column']} breakdown: {json.dumps(sub_dict)})"
-                group_summaries.append(f"'{d}': {cnt} total records{sub_part}{ids_part}")
+
+                if primary_metric_col and g_vals:
+                    group_summaries.append(f"'{d}': Total {g_info['metric_field']} = {fmt_val(sum_v)} (across {g_cnt} records){vals_part}{sub_part}{ids_part}")
+                else:
+                    group_summaries.append(f"'{d}': {g_cnt} total records{sub_part}{ids_part}")
 
             count_str = "; ".join(group_summaries)
-            summary_lines.append(
-                f"- Group Aggregation & Multi-Metric Breakdown ({g_info['group_column']}): "
-                f"Top Group is '{top_grp_name}' with {g_info['top_dept_by_sum'][1]} records{top_ids_str}. "
-                f"Complete Group Breakdown: {count_str}."
-            )
+            metric_label = g_info['metric_field']
+
+            if primary_metric_col and top_grp_vals:
+                summary_lines.append(
+                    f"- Group Aggregation & Multi-Metric Breakdown ({g_info['group_column']}): "
+                    f"Highest Group by Total {metric_label} is '{top_grp_name}' with Total {metric_label} = {top_val_formatted} "
+                    f"(across {len(top_grp_vals)} records){top_ids_str}. "
+                    f"Complete Group Breakdown: {count_str}."
+                )
+            else:
+                summary_lines.append(
+                    f"- Group Aggregation & Multi-Metric Breakdown ({g_info['group_column']}): "
+                    f"Top Group is '{top_grp_name}' with {top_grp_val} records{top_ids_str}. "
+                    f"Complete Group Breakdown: {count_str}."
+                )
 
         # Filtered Matching Records List (Findings 6 & 9)
         eval_filtered = filtered_records if filtered_records else unique_records

@@ -4,6 +4,7 @@ SUPPORTED_EXTENSIONS = {
     'xlsx', 
     'xls', 
     'csv', 
+    'tsv',
     'png', 
     'jpg', 
     'jpeg', 
@@ -11,9 +12,14 @@ SUPPORTED_EXTENSIONS = {
     'gif',
     'bmp',
     'txt', 
+    'md',
+    'markdown',
+    'log',
     'json',
     'docx',
     'doc',
+    'pptx',
+    'ppt',
     'zip',
     'mp4',
     'mp3'
@@ -24,15 +30,20 @@ SUPPORTED_MIME_TYPES = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx
     'application/vnd.ms-excel',                                         # .xls
     'text/csv',
+    'text/tab-separated-values',
     'image/png',
     'image/jpeg',
     'image/webp',
     'image/gif',
     'image/bmp',
     'text/plain',
+    'text/markdown',
+    'text/x-markdown',
     'application/json',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', # .docx
     'application/msword',                                                      # .doc
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', # .pptx
+    'application/vnd.ms-powerpoint',                                           # .ppt
     'application/zip',
     'video/mp4',
     'audio/mpeg'

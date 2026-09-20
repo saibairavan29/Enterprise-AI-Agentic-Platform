@@ -17,6 +17,9 @@ class ConflictsBaseView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def handle_exception(self, exc):
+        from rest_framework.exceptions import APIException
+        if isinstance(exc, APIException):
+            return super().handle_exception(exc)
         logger.error(f"API view exception raised: {str(exc)}", exc_info=True)
         return Response({
             "success": False,
@@ -25,18 +28,57 @@ class ConflictsBaseView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
+def get_active_conflicts():
+    """
+    Returns QuerySet of KnowledgeConflicts linking strictly ACTIVE repository documents across different files.
+    Prevents deleted, archived, or recycled documents from appearing in active scans.
+    """
+    from django.db.models import Q, F
+    return KnowledgeConflict.objects.filter(
+        source_document__repository_status='ACTIVE',
+        target_document__repository_status='ACTIVE'
+    ).exclude(
+        source_document=F('target_document')
+    ).filter(
+        Q(source_document__folder__isnull=True) | Q(source_document__folder__is_deleted=False)
+    ).filter(
+        Q(target_document__folder__isnull=True) | Q(target_document__folder__is_deleted=False)
+    ).exclude(
+        source_document__source_document__status__in=['deleted', 'DELETED']
+    ).exclude(
+        target_document__source_document__status__in=['deleted', 'DELETED']
+    )
+
+
 class ConflictsListView(ConflictsBaseView):
     """
-    GET: List all detected conflicts.
+    GET: List all detected conflicts for active repository documents.
     POST: Triggers E2E conflict detection run dynamically.
     """
     def get(self, request):
-        status_filter = request.query_params.get("status")
-        queryset = KnowledgeConflict.objects.all().order_by('-detected_at')
-        if status_filter:
+        params = getattr(request, 'query_params', request.GET)
+        status_filter = params.get("status")
+        try:
+            max_per_pair = int(params.get("max_per_pair", 5))
+        except (ValueError, TypeError):
+            max_per_pair = 5
+
+        queryset = get_active_conflicts().order_by('-detected_at')
+        if status_filter and status_filter != 'ALL':
             queryset = queryset.filter(status=status_filter)
             
-        serializer = ConflictSerializer(queryset, many=True)
+        # Diverse sampling: Cap per pair to max_per_pair (default 5) so no single pair floods out other repository files
+        seen_pair_counts = {}
+        selected_ids = []
+        for cid, s_id, t_id in queryset.values_list('id', 'source_document_id', 'target_document_id'):
+            pair_key = tuple(sorted([s_id, t_id]))
+            cnt = seen_pair_counts.get(pair_key, 0)
+            if cnt < max_per_pair:
+                seen_pair_counts[pair_key] = cnt + 1
+                selected_ids.append(cid)
+
+        diverse_queryset = KnowledgeConflict.objects.filter(id__in=selected_ids).order_by('-overall_similarity', '-detected_at')
+        serializer = ConflictSerializer(diverse_queryset, many=True)
         return Response({
             "success": True,
             "data": serializer.data,
@@ -47,15 +89,7 @@ class ConflictsListView(ConflictsBaseView):
         # Trigger E2E conflict detection orchestrator
         ReviewValidator.validate_reviewer_permissions(request.user)
         
-        # Cleanup old unresolved candidates and conflicts
-        from knowledge_conflict.models import KnowledgeCandidate
-        from django.db import transaction
-        with transaction.atomic():
-            KnowledgeCandidate.objects.exclude(
-                conflicts__status__in=['VERIFIED', 'REJECTED', 'ARCHIVED']
-            ).delete()
-        
-        # 1. Generate comparison candidates from current repository state
+        # 1. Generate comparison candidates from current active repository state
         from knowledge_conflict.services.orchestration import CandidateOrchestrationService
         candidate_service = CandidateOrchestrationService()
         candidate_report = candidate_service.generate_candidates()
@@ -76,16 +110,16 @@ class ConflictsListView(ConflictsBaseView):
 
 class ConflictsStatisticsView(ConflictsBaseView):
     """
-    GET: Compiles summary statistical metrics for the dashboard.
+    GET: Compiles summary statistical metrics for the active repository dashboard.
     """
     def get(self, request):
-        conflicts = KnowledgeConflict.objects.all()
+        conflicts = get_active_conflicts()
         total_count = conflicts.count()
         pending = conflicts.filter(status__in=['NEW', 'PROCESSING', 'REVIEW_PENDING']).count()
         critical = conflicts.filter(severity='CRITICAL').count()
         verified = conflicts.filter(status='VERIFIED').count()
         
-        # Calculate average similarity score
+        # Calculate average similarity score across active conflicts
         avg_sim = 0.0
         if total_count > 0:
             avg_sim = sum(c.overall_similarity for c in conflicts) / total_count
@@ -98,7 +132,7 @@ class ConflictsStatisticsView(ConflictsBaseView):
                 "critical_conflicts": critical,
                 "resolved_conflicts": verified,
                 "average_similarity": round(avg_sim, 4),
-                "average_confidence": 0.89 # Default baseline confidence index
+                "average_confidence": 0.89
             },
             "message": "Fetched conflict stats successfully."
         })

@@ -75,24 +75,36 @@ const EmployeeDirectory = () => {
 
   const deriveSchemaFromRecords = (records) => {
     if (!records || records.length === 0) return;
-    const keySet = new Set();
+    const keySet = [];
+    const seenLower = new Set();
+
     records.forEach(r => {
       const data = r.canonical_data || r.employee_details || r;
-      Object.keys(data).forEach(k => {
-        if (!['id', 'knowledge_document', 'created_at', 'updated_at', 'employee_details', 'canonical_data'].includes(k)) {
-          keySet.add(k);
-        }
-      });
+      if (data && typeof data === 'object') {
+        Object.keys(data).forEach(k => {
+          const kClean = String(k).trim();
+          const kLower = kClean.toLowerCase().replace(/_/g, '');
+          if (!['id', 'knowledge_document', 'created_at', 'updated_at', 'employee_details', 'canonical_data'].includes(kClean)) {
+            if (!seenLower.has(kLower)) {
+              seenLower.add(kLower);
+              keySet.push(kClean);
+            }
+          }
+        });
+      }
     });
 
-    if (keySet.size === 0) return;
+    if (keySet.length === 0) return;
 
-    const cols = Array.from(keySet).map(key => {
+    const cols = keySet.map(key => {
       let type = 'text';
-      const sampleVal = records.find(r => {
+      const sampleRec = records.find(r => {
         const d = r.canonical_data || r.employee_details || r;
+        if (!d) return false;
         return d[key] !== undefined && d[key] !== null;
-      })?.canonical_data?.[key];
+      });
+      const dObj = sampleRec ? (sampleRec.canonical_data || sampleRec.employee_details || sampleRec) : null;
+      const sampleVal = dObj ? dObj[key] : null;
 
       const kLower = key.toLowerCase();
       if (typeof sampleVal === 'number' || kLower.includes('salary') || kLower.includes('exp') || kLower.includes('years') || kLower.includes('count') || kLower.includes('age') || kLower.includes('pay')) {
@@ -121,8 +133,9 @@ const EmployeeDirectory = () => {
 
       try {
         const schemaRes = await client.get('repository/employees/schema/');
-        if (schemaRes.data && Array.isArray(schemaRes.data.columns) && schemaRes.data.columns.length > 0) {
-          setSchema(schemaRes.data.columns);
+        const schemaCols = schemaRes.data?.data || schemaRes.data?.columns;
+        if (Array.isArray(schemaCols) && schemaCols.length > 0) {
+          setSchema(schemaCols);
         } else {
           deriveSchemaFromRecords(data);
         }
@@ -362,8 +375,23 @@ const EmployeeDirectory = () => {
   const getEmpDataVal = (emp, fieldName) => {
     if (!emp) return 'N/A';
     const details = emp.canonical_data || emp.employee_details || emp;
-    const val = details[fieldName] !== undefined ? details[fieldName] : emp[fieldName];
-    return (val !== undefined && val !== null && val !== '') ? val : 'N/A';
+    let val = details[fieldName] !== undefined ? details[fieldName] : emp[fieldName];
+
+    if (val === undefined || val === null) {
+      const fnLower = String(fieldName).toLowerCase().replace(/_/g, '');
+      if (details && typeof details === 'object') {
+        const matchKey = Object.keys(details).find(k => k.toLowerCase().replace(/_/g, '') === fnLower);
+        if (matchKey && details[matchKey] !== undefined && details[matchKey] !== null) {
+          val = details[matchKey];
+        }
+      }
+    }
+
+    if (val === undefined || val === null || val === '') return 'N/A';
+    if (typeof val === 'object') {
+      return Array.isArray(val) ? val.join(', ') : JSON.stringify(val);
+    }
+    return val;
   };
 
   const safeEmployees = Array.isArray(employees) ? employees : [];
@@ -380,9 +408,11 @@ const EmployeeDirectory = () => {
 
     if (searchQuery.trim()) {
       const searchLower = searchQuery.toLowerCase();
-      const match = Object.values(details).some(val => 
-        val !== null && val !== undefined && String(val).toLowerCase().includes(searchLower)
-      );
+      const match = Object.values(details).some(val => {
+        if (val === null || val === undefined) return false;
+        const strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+        return strVal.toLowerCase().includes(searchLower);
+      });
       if (!match) return false;
     }
 
@@ -401,15 +431,18 @@ const EmployeeDirectory = () => {
     let valA = getEmpDataVal(a, sortField);
     let valB = getEmpDataVal(b, sortField);
 
-    const numA = parseFloat(valA);
-    const numB = parseFloat(valB);
+    const strA = typeof valA === 'object' ? JSON.stringify(valA) : String(valA);
+    const strB = typeof valB === 'object' ? JSON.stringify(valB) : String(valB);
+
+    const numA = parseFloat(strA.replace(/[^0-9.-]/g, ''));
+    const numB = parseFloat(strB.replace(/[^0-9.-]/g, ''));
 
     if (!isNaN(numA) && !isNaN(numB)) {
       return sortOrder === 'asc' ? numA - numB : numB - numA;
     }
     
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
+    valA = strA.toLowerCase();
+    valB = strB.toLowerCase();
     
     if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
     if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
@@ -545,38 +578,46 @@ const EmployeeDirectory = () => {
   };
 
   const renderCellContent = (emp, col) => {
-    const val = getEmpDataVal(emp, col.key);
+    let val = getEmpDataVal(emp, col.key);
     if (val === 'N/A') return <span className="text-muted">N/A</span>;
 
+    if (typeof val === 'object' && val !== null) {
+      val = Array.isArray(val) ? val.join(', ') : JSON.stringify(val);
+    }
+
+    const valStr = String(val);
     const kLower = col.key.toLowerCase();
     if (kLower.includes('salary') || kLower.includes('pay') || kLower.includes('compensation')) {
-      const numVal = parseFloat(val);
-      const formatted = !isNaN(numVal) ? `$${numVal.toLocaleString('en-US')}` : `$${val}`;
+      if (valStr.includes('₹') || valStr.toLowerCase().includes('rs') || valStr.toLowerCase().includes('inr')) {
+        return <span className="fw-semibold text-success font-monospace">{valStr}</span>;
+      }
+      const numVal = parseFloat(valStr.replace(/[^0-9.-]/g, ''));
+      const formatted = !isNaN(numVal) ? `₹${numVal.toLocaleString('en-IN')}` : valStr;
       return <span className="fw-semibold text-success font-monospace">{formatted}</span>;
     }
 
     if (kLower.includes('status')) {
-      const isActive = String(val).toLowerCase() === 'active';
+      const isActive = valStr.toLowerCase() === 'active';
       return (
         <span className={`badge ${isActive ? 'bg-success-subtle text-success border-success' : 'bg-secondary-subtle text-secondary border-secondary'} border rounded-pill px-2 py-1`}>
-          {String(val)}
+          {valStr}
         </span>
       );
     }
 
     if (col.type === 'number' || typeof val === 'number') {
-      return <span className="font-monospace">{val}</span>;
+      return <span className="font-monospace">{valStr}</span>;
     }
 
     if (kLower.includes('email')) {
-      return <span className="text-secondary small font-monospace">{val}</span>;
+      return <span className="text-secondary small font-monospace">{valStr}</span>;
     }
 
     if (kLower.includes('id')) {
-      return <span className="font-monospace fw-semibold">{val}</span>;
+      return <span className="font-monospace fw-semibold">{valStr}</span>;
     }
 
-    return <span className="text-dark">{String(val)}</span>;
+    return <span className="text-dark">{valStr}</span>;
   };
 
   return (
@@ -609,7 +650,12 @@ const EmployeeDirectory = () => {
               </div>
               
               {filterableCols.slice(0, 3).map(col => {
-                const options = Array.from(new Set(safeEmployees.map(e => getEmpDataVal(e, col.key)).filter(v => v && v !== 'N/A')));
+                const options = Array.from(new Set(
+                  safeEmployees.map(e => {
+                    const v = getEmpDataVal(e, col.key);
+                    return typeof v === 'object' ? JSON.stringify(v) : String(v);
+                  }).filter(v => v && v !== 'N/A' && v !== '[object Object]')
+                ));
                 return (
                   <div key={col.key} className="col-6 col-md-2">
                     <label className="form-label small text-secondary fw-semibold">{col.label}</label>
@@ -622,7 +668,11 @@ const EmployeeDirectory = () => {
                       }}
                     >
                       <option value="">All {col.label}s</option>
-                      {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                      {options.map(opt => (
+                        <option key={String(opt)} value={String(opt)}>
+                          {String(opt)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 );
@@ -823,8 +873,21 @@ const EmployeeDirectory = () => {
                   if (['id', 'knowledge_document', 'created_at', 'updated_at', 'canonical_data', 'employee_details'].includes(key)) return null;
                   const label = formatLabel(key);
                   const isSalary = key.toLowerCase().includes('salary') || key.toLowerCase().includes('pay');
-                  const numVal = parseFloat(val);
-                  const displayVal = isSalary && !isNaN(numVal) ? `$${numVal.toLocaleString('en-US')}` : (val !== null && val !== undefined && val !== '' ? String(val) : 'N/A');
+                  
+                  let displayVal = 'N/A';
+                  if (val !== null && val !== undefined && val !== '') {
+                    if (typeof val === 'object') {
+                      displayVal = Array.isArray(val) ? val.join(', ') : JSON.stringify(val);
+                    } else {
+                      displayVal = String(val);
+                    }
+                  }
+                  if (isSalary) {
+                    const numVal = parseFloat(displayVal.replace(/[^0-9.-]/g, ''));
+                    if (!isNaN(numVal)) {
+                      displayVal = `$${numVal.toLocaleString('en-US')}`;
+                    }
+                  }
 
                   return (
                     <div key={key}>
@@ -1131,4 +1194,40 @@ const EmployeeDirectory = () => {
   );
 };
 
-export default EmployeeDirectory;
+class EmployeeDirectoryErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("EmployeeDirectory rendering error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="alert alert-danger p-4 rounded-3 shadow-sm my-4">
+          <h4 className="fw-bold text-danger mb-2">⚠️ Record Directory Interface Warning</h4>
+          <p className="mb-3">A rendering error occurred while displaying directory records.</p>
+          <pre className="bg-dark text-light p-3 rounded font-monospace small mb-3">
+            {this.state.error?.toString() || 'Unknown rendering exception'}
+          </pre>
+          <button 
+            className="btn btn-outline-danger fw-bold"
+            onClick={() => this.setState({ hasError: false, error: null })}
+          >
+            🔄 Reload Directory Interface
+          </button>
+        </div>
+      );
+    }
+    return <EmployeeDirectory {...this.props} />;
+  }
+}
+
+export default EmployeeDirectoryErrorBoundary;

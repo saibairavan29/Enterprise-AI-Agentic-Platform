@@ -134,12 +134,20 @@ class SameEntityTypeStrategy(BasePairingStrategy):
                     if s1["metadata"]["record_id"] != s2["metadata"]["record_id"]:
                         rec1 = get_record_by_id(s1["metadata"]["record_id"], records_db)
                         rec2 = get_record_by_id(s2["metadata"]["record_id"], records_db)
+                        
+                        doc1_id = s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None)
+                        doc2_id = s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None)
+                        
+                        # Strictly enforce cross-file document comparison
+                        if doc1_id and doc2_id and str(doc1_id) == str(doc2_id):
+                            continue
+                            
                         if not should_pair_records(rec1, rec2):
                             continue
                             
                         pairs.append({
-                            "source_document_id": s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None),
-                            "target_document_id": s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None),
+                            "source_document_id": doc1_id,
+                            "target_document_id": doc2_id,
                             "source_segment_id": s1["segment_id"],
                             "target_segment_id": s2["segment_id"],
                             "source_text": s1["text"],
@@ -189,12 +197,20 @@ class SameDepartmentStrategy(BasePairingStrategy):
                     if s1["metadata"]["record_id"] != s2["metadata"]["record_id"]:
                         rec1 = get_record_by_id(s1["metadata"]["record_id"], records_db)
                         rec2 = get_record_by_id(s2["metadata"]["record_id"], records_db)
+                        
+                        doc1_id = s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None)
+                        doc2_id = s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None)
+                        
+                        # Strictly enforce cross-file document comparison
+                        if doc1_id and doc2_id and str(doc1_id) == str(doc2_id):
+                            continue
+                            
                         if not should_pair_records(rec1, rec2):
                             continue
                             
                         pairs.append({
-                            "source_document_id": s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None),
-                            "target_document_id": s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None),
+                            "source_document_id": doc1_id,
+                            "target_document_id": doc2_id,
                             "source_segment_id": s1["segment_id"],
                             "target_segment_id": s2["segment_id"],
                             "source_text": s1["text"],
@@ -302,13 +318,21 @@ class SimilarityWindowStrategy(BasePairingStrategy):
                     if item1["metadata"]["record_id"] != item2["metadata"]["record_id"]:
                         rec1 = get_record_by_id(item1["metadata"]["record_id"], records_db)
                         rec2 = get_record_by_id(item2["metadata"]["record_id"], records_db)
+                        
+                        doc1_id = item1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None)
+                        doc2_id = item2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None)
+                        
+                        # Strictly enforce cross-file document comparison
+                        if doc1_id and doc2_id and str(doc1_id) == str(doc2_id):
+                            continue
+                            
                         if not should_pair_records(rec1, rec2):
                             continue
                             
                         if abs(val1 - val2) <= window:
                             pairs.append({
-                                "source_document_id": item1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None),
-                                "target_document_id": item2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None),
+                                "source_document_id": doc1_id,
+                                "target_document_id": doc2_id,
                                 "source_segment_id": item1["segment_id"],
                                 "target_segment_id": item2["segment_id"],
                                 "source_text": item1["text"],
@@ -344,9 +368,68 @@ class UniversalCrossCheckStrategy(BasePairingStrategy):
         record_segs = [s for s in segments if s["segment_id"].startswith("rec-") and s["segment_id"].endswith("-full")]
         doc_segs = [s for s in segments if not s["segment_id"].startswith("rec-")]
 
-        # 1. Generic Cross-Check between Records across files & entities
-        for i in range(len(record_segs)):
-            for j in range(i + 1, len(record_segs)):
+        # 1. Generic Cross-Check between Documents across different files using Content & OCR Key Tokens (PRIORITY 1)
+        import uuid
+        from ..preprocessors.normalizer import TextNormalizer
+        docs_by_id = {}
+        for seg in doc_segs:
+            doc_id = seg["metadata"].get("document_id")
+            if doc_id:
+                try:
+                    uuid.UUID(str(doc_id))
+                    docs_by_id.setdefault(str(doc_id), []).append(seg)
+                except ValueError:
+                    pass
+            
+        doc_ids = list(docs_by_id.keys())
+        for i in range(len(doc_ids)):
+            for j in range(i + 1, len(doc_ids)):
+                id1 = doc_ids[i]
+                id2 = doc_ids[j]
+                
+                segs1 = docs_by_id[id1][:5]
+                segs2 = docs_by_id[id2][:5]
+                
+                for s1 in segs1:
+                    tokens1 = set(TextNormalizer.extract_key_tokens(s1["text"]))
+                    for s2 in segs2:
+                        tokens2 = set(TextNormalizer.extract_key_tokens(s2["text"]))
+                        
+                        # Calculate non-stopword token overlap
+                        common_tokens = tokens1.intersection(tokens2)
+                        overlap_ratio = len(common_tokens) / float(max(1, min(len(tokens1), len(tokens2)))) if (tokens1 and tokens2) else 0.0
+                        
+                        # Pair segments if they share key non-stopword content tokens or for cross-file baseline comparison
+                        if common_tokens or overlap_ratio >= 0.10 or len(doc_ids) >= 2:
+                            reason = f"Shared key tokens ({len(common_tokens)}): {', '.join(list(common_tokens)[:4])}" if common_tokens else "Cross-File Content Comparison"
+                            pairs.append({
+                                "source_document_id": id1,
+                                "target_document_id": id2,
+                                "source_segment_id": s1["segment_id"],
+                                "target_segment_id": s2["segment_id"],
+                                "source_text": s1["text"],
+                                "target_text": s2["text"],
+                                "source_page": s1.get("page"),
+                                "target_page": s2.get("page"),
+                                "source_section": s1.get("section"),
+                                "target_section": s2.get("section"),
+                                "strategy_used": "UniversalCrossCheckStrategy",
+                                "strategy_confidence": self.confidence,
+                                "entity_type": "DocumentCrossCheck",
+                                "metadata": {
+                                    "source_document_id": id1,
+                                    "target_document_id": id2,
+                                    "pairing_reason": reason,
+                                    "common_tokens_count": len(common_tokens),
+                                    "sample_common_tokens": list(common_tokens)[:5]
+                                }
+                            })
+
+        # 2. Generic Cross-Check between Records across files & entities (Capped for performance)
+        sampled_record_segs = record_segs[:300] if len(record_segs) > 300 else record_segs
+        pair_counts = {}
+        for i in range(len(sampled_record_segs)):
+            for j in range(i + 1, len(sampled_record_segs)):
                 s1 = record_segs[i]
                 s2 = record_segs[j]
                 
@@ -358,26 +441,38 @@ class UniversalCrossCheckStrategy(BasePairingStrategy):
                 rec1 = get_record_by_id(rec1_id, records_db)
                 rec2 = get_record_by_id(rec2_id, records_db)
                 
+                doc1_id = s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None)
+                doc2_id = s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None)
+                
+                # Strictly enforce cross-file document comparison
+                if doc1_id and doc2_id and str(doc1_id) == str(doc2_id):
+                    continue
+                    
+                doc_pair_key = f"{doc1_id}_{doc2_id}"
+                if pair_counts.get(doc_pair_key, 0) >= 50:
+                    continue
+                    
                 d1 = (rec1.canonical_data if rec1 else {}) or {}
                 d2 = (rec2.canonical_data if rec2 else {}) or {}
                 
                 common_keys = set(d1.keys()).intersection(set(d2.keys()))
                 
-                # Pair if records share any canonical keys or schema fields, or are from different files
+                # Pair if records share any canonical keys or schema fields across different files
                 should_pair = False
                 reason = "Cross-Record Property Check"
                 
                 if common_keys:
                     should_pair = True
                     reason = f"Common properties: {', '.join(list(common_keys)[:3])}"
-                elif str(s1["metadata"].get("document_id")) != str(s2["metadata"].get("document_id")):
+                elif str(doc1_id) != str(doc2_id):
                     should_pair = True
                     reason = "Cross-Document Record Check"
                     
                 if should_pair:
+                    pair_counts[doc_pair_key] = pair_counts.get(doc_pair_key, 0) + 1
                     pairs.append({
-                        "source_document_id": s1["metadata"].get("document_id") or (rec1.knowledge_document_id if rec1 else None),
-                        "target_document_id": s2["metadata"].get("document_id") or (rec2.knowledge_document_id if rec2 else None),
+                        "source_document_id": doc1_id,
+                        "target_document_id": doc2_id,
                         "source_segment_id": s1["segment_id"],
                         "target_segment_id": s2["segment_id"],
                         "source_text": s1["text"],
@@ -396,50 +491,6 @@ class UniversalCrossCheckStrategy(BasePairingStrategy):
                             "common_properties": list(common_keys)
                         }
                     })
-
-        # 2. Generic Cross-Check between Documents across different files
-        import uuid
-        docs_by_id = {}
-        for seg in doc_segs:
-            doc_id = seg["metadata"].get("document_id")
-            if doc_id:
-                try:
-                    uuid.UUID(str(doc_id))
-                    docs_by_id.setdefault(str(doc_id), []).append(seg)
-                except ValueError:
-                    pass
-            
-        doc_ids = list(docs_by_id.keys())
-        for i in range(len(doc_ids)):
-            for j in range(i + 1, len(doc_ids)):
-                id1 = doc_ids[i]
-                id2 = doc_ids[j]
-                
-                segs1 = docs_by_id[id1][:3]
-                segs2 = docs_by_id[id2][:3]
-                
-                for s1 in segs1:
-                    for s2 in segs2:
-                        pairs.append({
-                            "source_document_id": id1,
-                            "target_document_id": id2,
-                            "source_segment_id": s1["segment_id"],
-                            "target_segment_id": s2["segment_id"],
-                            "source_text": s1["text"],
-                            "target_text": s2["text"],
-                            "source_page": s1.get("page"),
-                            "target_page": s2.get("page"),
-                            "source_section": s1.get("section"),
-                            "target_section": s2.get("section"),
-                            "strategy_used": "UniversalCrossCheckStrategy",
-                            "strategy_confidence": self.confidence,
-                            "entity_type": "DocumentCrossCheck",
-                            "metadata": {
-                                "source_document_id": id1,
-                                "target_document_id": id2,
-                                "pairing_reason": "Cross-File Document Comparison"
-                            }
-                        })
 
         return pairs
 

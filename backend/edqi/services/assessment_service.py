@@ -43,7 +43,7 @@ class EnterpriseQualityAssessmentService:
         Assesses a single KnowledgeRecord.
         Returns a tuple: (report_instance, issue_instances)
         """
-        logger.info(f"Assessing quality for record {record_instance.id} (Exec: {context.assessment_execution_id})")
+        logger.debug(f"Assessing quality for record {record_instance.id} (Exec: {context.assessment_execution_id})")
         
         # Load rules from rules_loader
         rules = QualityRulesLoader.load_rules()
@@ -72,7 +72,8 @@ class EnterpriseQualityAssessmentService:
         assessment_time_ms = (time.time() - assessment_start) * 1000.0
 
         # Compute overall quality score & grade
-        overall_score = QualityScoreCalculator.calculate_score(dimension_scores, rules)
+        file_category = getattr(context, 'file_category', None) if context else None
+        overall_score = QualityScoreCalculator.calculate_score(dimension_scores, file_category=file_category, rules=rules)
         grade = QualityGradeCalculator.calculate_grade(overall_score, rules)
 
         # Retrieve previous score for trend logic
@@ -139,5 +140,5 @@ class EnterpriseQualityAssessmentService:
         if issue_instances:
             self.quality_repo.save_issues_bulk(issue_instances)
 
-        logger.info(f"Assessed quality score for record {record_instance.id}: {overall_score} ({grade})")
+        logger.debug(f"Assessed quality score for record {record_instance.id}: {overall_score} ({grade})")
         return report, issue_instances

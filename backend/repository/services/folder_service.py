@@ -56,19 +56,29 @@ class FolderService:
             current_path_acc = f"{current_path_acc}/{folder_name}"
 
             with transaction.atomic():
-                folder, _ = RepositoryFolder.objects.get_or_create(
+                folder = RepositoryFolder.objects.filter(
                     repository_type=repo_type,
-                    parent=current_parent,
-                    name=folder_name,
-                    defaults={
-                        'logical_path': current_path_acc,
-                        'owner': owner if repo_type == 'personal' else None,
-                        'is_deleted': False
-                    }
-                )
-                if folder.is_deleted:
-                    folder.is_deleted = False
-                    folder.save()
+                    logical_path__iexact=current_path_acc
+                ).first()
+                if not folder:
+                    folder = RepositoryFolder.objects.create(
+                        repository_type=repo_type,
+                        parent=current_parent,
+                        name=folder_name,
+                        logical_path=current_path_acc,
+                        owner=owner if repo_type == 'personal' else None,
+                        is_deleted=False
+                    )
+                else:
+                    changed = False
+                    if folder.parent != current_parent:
+                        folder.parent = current_parent
+                        changed = True
+                    if folder.is_deleted:
+                        folder.is_deleted = False
+                        changed = True
+                    if changed:
+                        folder.save()
             current_parent = folder
 
         return current_parent
@@ -92,6 +102,18 @@ class FolderService:
         doc = KnowledgeDocument.objects.exclude(repository_status='DELETED').filter(
             logical_path__iexact=normalized
         ).first()
+
+        # Fallback: Match KnowledgeDocument by filename or title if exact logical_path missed
+        if not doc and len(parts) >= 1:
+            filename = parts[-1]
+            from django.db.models import Q
+            doc = KnowledgeDocument.objects.exclude(repository_status='DELETED').filter(
+                Q(logical_path__iexact=normalized) |
+                Q(logical_path__endswith=f"/{filename}") |
+                Q(title__iexact=filename) |
+                Q(source_document__original_name__iexact=filename)
+            ).first()
+
         if doc:
             # Check user authorization
             if repo_type == 'personal' and user and user.is_authenticated:
@@ -105,6 +127,15 @@ class FolderService:
             is_deleted=False,
             logical_path__iexact=normalized
         ).first()
+
+        if not folder and len(parts) >= 1:
+            folder_name = parts[-1]
+            folder = RepositoryFolder.objects.filter(
+                is_deleted=False,
+                name__iexact=folder_name,
+                repository_type=repo_type
+            ).first()
+
         if folder:
             if repo_type == 'personal' and user and user.is_authenticated:
                 user_role = getattr(user, 'role', 'reader').lower()

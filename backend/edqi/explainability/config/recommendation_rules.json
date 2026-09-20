@@ -3,7 +3,6 @@
     "category": "Completeness",
     "priority": "HIGH",
     "priority_score": 85.0,
-    "expected_improvement": 12.0,
     "recommendation_confidence": 95.0,
     "recommendation": "Populate the missing mandatory field."
   },
@@ -11,7 +10,6 @@
     "category": "Validity",
     "priority": "MEDIUM",
     "priority_score": 65.0,
-    "expected_improvement": 7.0,
     "recommendation_confidence": 90.0,
     "recommendation": "Correct the value to match the expected format."
   },
@@ -19,7 +17,6 @@
     "category": "Uniqueness",
     "priority": "HIGH",
     "priority_score": 90.0,
-    "expected_improvement": 15.0,
     "recommendation_confidence": 98.0,
     "recommendation": "Review and remove duplicate records."
   },
@@ -27,8 +24,8 @@
     "category": "Timeliness",
     "priority": "LOW",
     "priority_score": 40.0,
-    "expected_improvement": 4.0,
     "recommendation_confidence": 85.0,
     "recommendation": "Update the record with the latest available information."
   }
 }
+

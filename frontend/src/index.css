@@ -178,17 +178,25 @@ nav.navbar .navbar-brand {
   background-color: #e9ecef !important;
 }
 
-/* Text overrides */
-.text-white, .text-light {
-  color: #212529 !important;
+/* Text overrides for high contrast light theme */
+.text-white {
+  color: #ffffff !important;
+}
+
+.text-light {
+  color: #4b5563 !important;
 }
 
 .text-secondary {
-  color: #495057 !important;
+  color: #374151 !important;
 }
 
 .text-muted {
-  color: #6c757d !important;
+  color: #4b5563 !important;
+}
+
+.text-dark {
+  color: #111827 !important;
 }
 
 .text-cyan, .text-info {

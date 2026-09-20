@@ -153,7 +153,9 @@ class KnowledgeRecord(models.Model):
     id = models.BigAutoField(primary_key=True)
     knowledge_document = models.ForeignKey(
         KnowledgeDocument,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='records'
     )
     entity_type = models.CharField(max_length=100, blank=True, default='')

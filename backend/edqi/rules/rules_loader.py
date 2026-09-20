@@ -13,7 +13,7 @@ DEFAULT_RULES = {
     "Uniqueness",
     "Timeliness"
   ],
-  "required_fields": ["employee_id", "email", "department"],
+  "required_fields": [],
   "email_regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
   "phone_regex": "^\\+?1?\\d{9,15}$",
   "salary_min": 0,

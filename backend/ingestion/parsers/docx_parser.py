@@ -60,3 +60,5 @@ class DOCXParser(BaseDocumentParser):
         except Exception as e:
             logger.error(f"Failed parsing DOCX file at {file_path}: {str(e)}", exc_info=True)
             raise e
+
+DocxParser = DOCXParser

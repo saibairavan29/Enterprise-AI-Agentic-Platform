@@ -36,14 +36,16 @@ class DocumentUploadService(BaseService):
         file_hash = sha256.hexdigest()
         file_obj.seek(0)
         
-        # 6. Deduplication Check (purge prior FAILED records to allow clean re-upload)
-        failed_docs = Document.objects.filter(file_hash=file_hash, processing_status='FAILED')
-        if failed_docs.exists():
-            self.logger.info(f"Purging {failed_docs.count()} previously failed document record(s) with hash {file_hash} for re-upload.")
-            failed_docs.delete()
-
-        if Document.objects.filter(file_hash=file_hash).exists():
-            raise ValidationError("A document with the exact same content (SHA-256 hash) has already been uploaded.")
+        # 6. Clean up previous/existing uploads with identical file name or hash for smooth re-uploading
+        from django.db import transaction
+        existing_docs = list(Document.objects.filter(file_hash=file_hash))
+        for e_doc in existing_docs:
+            self.logger.info(f"Purging existing document record {e_doc.id} with name {file_obj.name} for fresh re-upload.")
+            try:
+                with transaction.atomic(savepoint=True):
+                    e_doc.delete()
+            except Exception as del_err:
+                self.logger.warning(f"Could not purge existing doc {e_doc.id}: {del_err}")
         
         # Determine standard MIME string mapping
         mime_map = {

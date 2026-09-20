@@ -25,7 +25,7 @@ class TimelinessAnalyzer(BaseAnalyzer):
         date_field = None
         for f in record.keys():
             f_lower = f.lower()
-            if "updated" in f_lower or "timestamp" in f_lower or "date" in f_lower:
+            if ("updated" in f_lower or "modified" in f_lower or "timestamp" in f_lower or "review" in f_lower) and "dob" not in f_lower and "hire" not in f_lower and "birth" not in f_lower:
                 val = record.get(f)
                 if val:
                     try:
@@ -38,7 +38,7 @@ class TimelinessAnalyzer(BaseAnalyzer):
                     except Exception:
                         pass
 
-        # If no field is found in record, default to the document created_at date or today
+        # If no audit/update field is found in record, default to today
         if not record_date:
             record_date = datetime.now()
             date_field = "Current Time (Fallback)"
