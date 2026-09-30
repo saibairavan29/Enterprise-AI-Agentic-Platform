@@ -1,37 +1,37 @@
 {
     "dataset_version": "v2.0.0",
-    "dataset_hash": "d4a05e2852ea5029cdc8d159375b931870c1ce2eefeb239a719975c461431faa",
-    "record_count": 1088,
+    "dataset_hash": "ec8a3431af32cd4c61db6897efbd566c291a6448d3d41beef8d433aa6161875c",
+    "record_count": 1432,
     "feature_count": 10,
-    "generated_at": "2026-08-21T11:55:08.298778Z",
+    "generated_at": "2026-09-22T04:57:23.125723Z",
     "features_diagnostics": {
         "missing_fields": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.8162,
-            "mean": 4.1425,
-            "std": 1.3561,
-            "min": 2.0,
+            "duplicate_percentage": 99.581,
+            "mean": 2.9378,
+            "std": 1.3856,
+            "min": 0.0,
             "max": 5.0
         },
         "invalid_fields": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
-            "mean": 0.0,
-            "std": 0.0,
+            "duplicate_percentage": 99.8603,
+            "mean": 0.0712,
+            "std": 0.2573,
             "min": 0.0,
-            "max": 0.0
+            "max": 1.0
         },
         "duplicate_fields": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
-            "mean": 0.0,
-            "std": 0.0,
+            "duplicate_percentage": 99.8603,
+            "mean": 0.6341,
+            "std": 0.4819,
             "min": 0.0,
-            "max": 0.0
+            "max": 1.0
         },
         "record_age": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
+            "duplicate_percentage": 99.9302,
             "mean": 0.0,
             "std": 0.0,
             "min": 0.0,
@@ -39,31 +39,31 @@
         },
         "quality_score": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.8162,
-            "mean": 75.1452,
-            "std": 8.1364,
-            "min": 70.0,
-            "max": 88.0
+            "duplicate_percentage": 99.3017,
+            "mean": 72.5056,
+            "std": 11.2161,
+            "min": 67.0,
+            "max": 100.0
         },
         "completeness_score": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.8162,
-            "mean": 17.1507,
-            "std": 27.1214,
+            "duplicate_percentage": 99.581,
+            "mean": 41.243,
+            "std": 27.7126,
             "min": 0.0,
-            "max": 60.0
+            "max": 100.0
         },
         "validity_score": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
-            "mean": 100.0,
-            "std": 0.0,
-            "min": 100.0,
+            "duplicate_percentage": 99.8603,
+            "mean": 98.5754,
+            "std": 5.1459,
+            "min": 80.0,
             "max": 100.0
         },
         "consistency_score": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
+            "duplicate_percentage": 99.9302,
             "mean": 100.0,
             "std": 0.0,
             "min": 100.0,
@@ -71,15 +71,15 @@
         },
         "uniqueness_score": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
-            "mean": 100.0,
-            "std": 0.0,
-            "min": 100.0,
+            "duplicate_percentage": 99.8603,
+            "mean": 36.5922,
+            "std": 48.1856,
+            "min": 0.0,
             "max": 100.0
         },
         "timeliness_score": {
             "null_percentage": 0.0,
-            "duplicate_percentage": 99.9081,
+            "duplicate_percentage": 99.9302,
             "mean": 100.0,
             "std": 0.0,
             "min": 100.0,

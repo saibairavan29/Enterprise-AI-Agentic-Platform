@@ -75,7 +75,7 @@ class RecommendationEngine:
                 try:
                     num_val = float(str(val).replace('$', '').replace(',', '').strip())
                     if num_val < 0 and ("price" in k.lower() or "cost" in k.lower() or "amount" in k.lower() or "val" in k.lower() or "num" in k.lower() or "score" in k.lower()):
-                        impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=5.0, issue_count=1, file_category="tabular", rules=rules)
+                        impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=5.0, issue_count=1, file_category=None, rules=rules)
                         recommendations.append({
                             "recommendation_type": "INVALID_NUMERIC_RANGE",
                             "category": "Validity",
@@ -106,7 +106,7 @@ class RecommendationEngine:
             if "email" in k.lower() and val:
                 email_str = str(val).strip()
                 if '@' not in email_str or '.' not in email_str or '_invalid' in email_str:
-                    impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=5.0, issue_count=1, file_category="tabular", rules=rules)
+                    impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=5.0, issue_count=1, file_category=None, rules=rules)
                     recommendations.append({
                         "recommendation_type": "INVALID_EMAIL_FORMAT",
                         "category": "Validity",
@@ -136,7 +136,7 @@ class RecommendationEngine:
             rule = self.rules["MISSING_REQUIRED_FIELD"]
             completeness_score = float(clean_features.get("completeness_score", 100.0))
             dim_delta = 100.0 - completeness_score
-            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Completeness", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Completeness", dim_delta_single=dim_delta, issue_count=1, file_category=None, rules=rules)
             
             missing_fields_list = [k for k, v in cdata.items() if v is None or str(v).strip() in ['', 'N/A', 'null', 'None']]
             missing_str = ", ".join(missing_fields_list) if missing_fields_list else f"{int(missing_count)} fields"
@@ -170,7 +170,7 @@ class RecommendationEngine:
             rule = self.rules["INVALID_FORMAT"]
             validity_score = float(clean_features.get("validity_score", 100.0))
             dim_delta = 100.0 - validity_score
-            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Validity", dim_delta_single=dim_delta, issue_count=1, file_category=None, rules=rules)
             
             recommendations.append({
                 "recommendation_type": "INVALID_FORMAT",
@@ -201,7 +201,7 @@ class RecommendationEngine:
             rule = self.rules["DUPLICATE_RECORD"]
             uniqueness_score = float(clean_features.get("uniqueness_score", 100.0))
             dim_delta = 100.0 - uniqueness_score
-            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Uniqueness", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Uniqueness", dim_delta_single=dim_delta, issue_count=1, file_category=None, rules=rules)
             
             recommendations.append({
                 "recommendation_type": "DUPLICATE_RECORD",
@@ -236,7 +236,7 @@ class RecommendationEngine:
         if (record_age > 30 or timeliness_score < 90.0) and "STALE_RECORD" in self.rules:
             rule = self.rules["STALE_RECORD"]
             dim_delta = 100.0 - timeliness_score
-            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Timeliness", dim_delta_single=dim_delta, issue_count=1, file_category="tabular", rules=rules)
+            impact = QualityScoreCalculator.calculate_repair_impact(clean_features, "Timeliness", dim_delta_single=dim_delta, issue_count=1, file_category=None, rules=rules)
             
             recommendations.append({
                 "recommendation_type": "STALE_RECORD",

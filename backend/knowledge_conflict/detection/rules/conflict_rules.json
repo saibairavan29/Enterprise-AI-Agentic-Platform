@@ -1,7 +1,7 @@
 {
     "embedding_model": "MiniLMEmbedding",
-    "similarity_threshold_duplicate": 0.92,
-    "similarity_threshold_consistent": 0.70,
+    "similarity_threshold_duplicate": 0.85,
+    "similarity_threshold_consistent": 0.50,
     "outdated_version_gap": 1,
     "minimum_sentence_length": 5,
     "contradiction_keywords": [

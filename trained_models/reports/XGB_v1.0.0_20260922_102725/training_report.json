@@ -1,0 +1,115 @@
+{
+    "report_generated_at": "2026-09-22T04:57:25.867377Z",
+    "model_metadata": {
+        "algorithm": "XGBOOST",
+        "model_version": "XGB_v1.0.0_20260922_102725",
+        "dataset_version": "v2.0.0",
+        "dataset_hash": "ec8a3431af32cd4c61db6897efbd566c291a6448d3d41beef8d433aa6161875c",
+        "feature_version": "1.0",
+        "accuracy": 0.9953,
+        "precision": 0.9965,
+        "recall": 0.9953,
+        "f1_score": 0.9956,
+        "roc_auc": 1.0,
+        "confusion_matrix": [
+            [
+                365,
+                0,
+                0
+            ],
+            [
+                0,
+                57,
+                2
+            ],
+            [
+                0,
+                0,
+                6
+            ]
+        ],
+        "classification_report": {
+            "0": {
+                "precision": 1.0,
+                "recall": 1.0,
+                "f1-score": 1.0,
+                "support": 365.0
+            },
+            "1": {
+                "precision": 1.0,
+                "recall": 0.9661016949152542,
+                "f1-score": 0.9827586206896551,
+                "support": 59.0
+            },
+            "2": {
+                "precision": 0.75,
+                "recall": 1.0,
+                "f1-score": 0.8571428571428571,
+                "support": 6.0
+            },
+            "accuracy": 0.9953488372093023,
+            "macro avg": {
+                "precision": 0.9166666666666666,
+                "recall": 0.9887005649717514,
+                "f1-score": 0.9466338259441708,
+                "support": 430.0
+            },
+            "weighted avg": {
+                "precision": 0.9965116279069768,
+                "recall": 0.9953488372093023,
+                "f1-score": 0.9956409668919693,
+                "support": 430.0
+            }
+        },
+        "cv_results": {
+            "fold_accuracies": [
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "fold_f1_scores": [
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        "cross_validation_score": 1.0,
+        "best_fold_score": 1.0,
+        "worst_fold_score": 1.0,
+        "training_dataset_size": 1002,
+        "testing_dataset_size": 430,
+        "validation_dataset_size": 177,
+        "training_time_sec": 0.0967569351196289,
+        "model_size_mb": 0.6146764755249023,
+        "feature_count": 10,
+        "supports_explainability": true,
+        "training_completed_at": "2026-09-22T04:57:25.867377Z",
+        "feature_importance": {
+            "missing_fields": 0.015093879774212837,
+            "invalid_fields": 0.0,
+            "duplicate_fields": 0.0032970907632261515,
+            "record_age": 0.0,
+            "quality_score": 0.981609046459198,
+            "completeness_score": 0.0,
+            "validity_score": 0.0,
+            "consistency_score": 0.0,
+            "uniqueness_score": 0.0,
+            "timeliness_score": 0.0
+        },
+        "training_configuration": {
+            "n_estimators": 300,
+            "learning_rate": 0.1,
+            "max_depth": 8,
+            "random_state": 42,
+            "classes": [
+                "Average",
+                "Excellent",
+                "Good"
+            ]
+        }
+    }
+}

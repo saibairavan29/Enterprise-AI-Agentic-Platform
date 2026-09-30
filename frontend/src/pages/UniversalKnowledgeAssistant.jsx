@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import client from '../api/client';
 
-const API_BASE = 'http://localhost:8000/api/v1/knowledge-assistant';
+const renderText = (val) => {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'object') {
+    if (val.text) return String(val.text);
+    return JSON.stringify(val);
+  }
+  return String(val);
+};
 
 export default function UniversalKnowledgeAssistant() {
   const [query, setQuery] = useState('');
@@ -29,14 +36,9 @@ export default function UniversalKnowledgeAssistant() {
     scrollToBottom();
   }, [messages, loading]);
 
-  const getAuthHeader = () => {
-    const token = localStorage.getItem('access_token');
-    return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-  };
-
   const fetchSessions = async () => {
     try {
-      const resp = await axios.get(`${API_BASE}/sessions/`, getAuthHeader());
+      const resp = await client.get('knowledge-assistant/sessions/');
       if (resp.data) {
         setSessions(resp.data);
         if (resp.data.length > 0 && !activeSessionId) {
@@ -51,7 +53,7 @@ export default function UniversalKnowledgeAssistant() {
   const loadSession = async (sessionId) => {
     try {
       setActiveSessionId(sessionId);
-      const resp = await axios.get(`${API_BASE}/sessions/${sessionId}/`, getAuthHeader());
+      const resp = await client.get(`knowledge-assistant/sessions/${sessionId}/`);
       const sData = resp.data;
       setMessages(sData.messages || []);
       if (sData.messages && sData.messages.length > 0) {
@@ -76,7 +78,7 @@ export default function UniversalKnowledgeAssistant() {
     if (!deleteModalSession) return;
     const targetId = deleteModalSession.id;
     try {
-      await axios.delete(`${API_BASE}/sessions/${targetId}/`, getAuthHeader());
+      await client.delete(`knowledge-assistant/sessions/${targetId}/`);
       setDeleteModalSession(null);
       
       const updatedList = sessions.filter(s => s.id !== targetId);
@@ -107,10 +109,10 @@ export default function UniversalKnowledgeAssistant() {
     setMessages(prev => [...prev, tempUserMsg]);
 
     try {
-      const resp = await axios.post(`${API_BASE}/chat/`, {
+      const resp = await client.post('knowledge-assistant/chat/', {
         query: userText,
         session_id: activeSessionId
-      }, getAuthHeader());
+      });
 
       const data = resp.data;
       setActiveSessionId(data.session_id);
@@ -160,7 +162,7 @@ export default function UniversalKnowledgeAssistant() {
   const handleReindex = async () => {
     setReindexing(true);
     try {
-      const resp = await axios.post(`${API_BASE}/reindex/`, {}, getAuthHeader());
+      const resp = await client.post('knowledge-assistant/reindex/', {});
       alert(`Re-index complete!\nVector chunks: ${resp.data.vector_chunks}\nGraph nodes: ${resp.data.graph_nodes}`);
     } catch (err) {
       console.error('Re-index failed:', err);
@@ -175,10 +177,10 @@ export default function UniversalKnowledgeAssistant() {
   const activeSessionTitle = activeSessionObj ? activeSessionObj.title : 'New Conversation';
 
   return (
-    <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', width: '100%', height: 'calc(100vh - 180px)', minHeight: '650px', overflow: 'hidden', backgroundColor: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif' }}>
       
       {/* LEFT SIDEBAR: ChatGPT-Style Conversations */}
-      <div style={{ width: '280px', height: '100vh', flexShrink: 0, backgroundColor: '#0f172a', color: '#f8fafc', display: 'flex', flexDirection: 'column', borderRight: '1px solid #1e293b', overflow: 'hidden' }}>
+      <div style={{ width: '280px', height: '100%', flexShrink: 0, backgroundColor: '#0f172a', color: '#f8fafc', display: 'flex', flexDirection: 'column', borderRight: '1px solid #1e293b', overflow: 'hidden' }}>
         
         {/* Sidebar Header + New Chat Button */}
         <div style={{ padding: '16px', borderBottom: '1px solid #1e293b', flexShrink: 0 }}>
@@ -277,7 +279,7 @@ export default function UniversalKnowledgeAssistant() {
       </div>
 
       {/* MAIN CONTENT AREA */}
-      <div style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, minWidth: 0, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
         {/* Header Bar */}
         <div style={{ height: '64px', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '0 24px', borderBottom: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
@@ -304,7 +306,7 @@ export default function UniversalKnowledgeAssistant() {
         </div>
 
         {/* MAIN WORKSPACE GRID: Conversation Stream + Grounded Console */}
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 440px', overflow: 'hidden' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 380px', overflow: 'hidden' }}>
           
           {/* Left Panel: Conversation Stream & Input */}
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', backgroundColor: '#fff', borderRight: '1px solid #e2e8f0' }}>
@@ -338,7 +340,7 @@ export default function UniversalKnowledgeAssistant() {
                         {msg.role === 'user' ? 'You' : 'Enterprise Knowledge Assistant'}
                       </div>
                       <div style={{ fontSize: '14px', lineHeight: '1.6', whitespace: 'pre-wrap' }}>
-                        {msg.content}
+                        {renderText(msg.content)}
                       </div>
 
                       {msg.role === 'assistant' && (
@@ -453,26 +455,38 @@ export default function UniversalKnowledgeAssistant() {
                       </div>
 
                       <div style={{ fontSize: '13px', color: '#334155', lineHeight: '1.6', whitespace: 'pre-wrap' }}>
-                        {answerDepth === 'direct' && (
-                          <p style={{ fontWeight: '500', color: '#0f172a', margin: 0 }}>
-                            {activeMessage.response_levels?.level_1 || activeMessage.content}
-                          </p>
-                        )}
-                        {answerDepth === 'detailed' && (
-                          <p style={{ color: '#1e293b', margin: 0 }}>
-                            {activeMessage.response_levels?.level_2 || activeMessage.content}
-                          </p>
-                        )}
-                        {answerDepth === 'indepth' && (
-                          <p style={{ color: '#1e293b', margin: 0 }}>
-                            {activeMessage.response_levels?.level_3 || activeMessage.content}
-                          </p>
-                        )}
-                        {answerDepth === 'comprehensive' && (
-                          <p style={{ color: '#1e293b', margin: 0 }}>
-                            {activeMessage.response_levels?.level_4 || activeMessage.content}
-                          </p>
-                        )}
+                        {(() => {
+                          const getLvlText = (lvl) => renderText(lvl);
+                          if (answerDepth === 'direct') {
+                            return (
+                              <p style={{ fontWeight: '500', color: '#0f172a', margin: 0 }}>
+                                {getLvlText(activeMessage.response_levels?.level_1) || renderText(activeMessage.content)}
+                              </p>
+                            );
+                          }
+                          if (answerDepth === 'detailed') {
+                            return (
+                              <p style={{ color: '#1e293b', margin: 0 }}>
+                                {getLvlText(activeMessage.response_levels?.level_2) || renderText(activeMessage.content)}
+                              </p>
+                            );
+                          }
+                          if (answerDepth === 'indepth') {
+                            return (
+                              <p style={{ color: '#1e293b', margin: 0 }}>
+                                {getLvlText(activeMessage.response_levels?.level_3) || renderText(activeMessage.content)}
+                              </p>
+                            );
+                          }
+                          if (answerDepth === 'comprehensive') {
+                            return (
+                              <p style={{ color: '#1e293b', margin: 0 }}>
+                                {getLvlText(activeMessage.response_levels?.level_4) || renderText(activeMessage.content)}
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
 
                       <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b' }}>

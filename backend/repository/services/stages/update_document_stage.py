@@ -1,6 +1,7 @@
 from django.utils import timezone
 from repository.repositories.document_repository import DocumentRepository
 from common.json_utils import enforce_json_boundary
+from common.path_utils import get_file_type_folder
 
 class UpdateDocumentStage:
     """
@@ -21,6 +22,7 @@ class UpdateDocumentStage:
         metadata = enforce_json_boundary(raw_metadata, label="KnowledgeDocument.metadata")
 
         repo_type = 'team'
+        folder_id = None
         folder_obj = None
         target_path = ""
         owner_obj = source_doc.uploaded_by if source_doc else context.get('user')
@@ -42,10 +44,44 @@ class UpdateDocumentStage:
             if not r_rel_path:
                 r_rel_path = metadata.get("relative_path") or ""
 
-        t_log_path = t_log_path.strip('/')
-        r_rel_path = r_rel_path.strip('/')
+        clean_title = title.split('/')[-1].split('\\')[-1]
 
-        if t_log_path and r_rel_path:
+        # Ensure Gmail ingestion documents are routed to Team/enterprise_ingestion_test_pack/<type>/<filename>
+        is_gmail = False
+        if source_doc and source_doc.metadata and isinstance(source_doc.metadata, dict):
+            if source_doc.metadata.get("gmail_source") == "gmail_imap" or source_doc.metadata.get("source") == "gmail_imap":
+                is_gmail = True
+        elif metadata and isinstance(metadata, dict):
+            if metadata.get("gmail_source") == "gmail_imap" or metadata.get("source") == "gmail_imap":
+                is_gmail = True
+
+        if is_gmail:
+            fn = source_doc.original_name if source_doc else clean_title
+            mime = source_doc.mime_type if source_doc else ""
+            ptype = source_doc.parser_type if source_doc else ""
+            folder_name = get_file_type_folder(fn, mime, ptype)
+            t_log_path = f"Team/enterprise_ingestion_test_pack/{folder_name}/{clean_title}"
+            r_rel_path = f"enterprise_ingestion_test_pack/{folder_name}/{clean_title}"
+            if isinstance(metadata, dict):
+                metadata["target_logical_path"] = t_log_path
+                metadata["relative_path"] = r_rel_path
+            if source_doc and isinstance(source_doc.metadata, dict):
+                source_doc.metadata["target_logical_path"] = t_log_path
+                source_doc.metadata["relative_path"] = r_rel_path
+                source_doc.save()
+
+        t_log_path = t_log_path.replace('\\', '/').strip('/')
+        r_rel_path = r_rel_path.replace('\\', '/').strip('/')
+
+        if t_log_path and (t_log_path.startswith('Team/') or t_log_path.startswith('Personal/')):
+            target_path = t_log_path
+        elif t_log_path and r_rel_path:
+            # Strip redundant leading folder segment if it matches trailing component of t_log_path
+            r_parts = r_rel_path.split('/')
+            t_parts = t_log_path.split('/')
+            if len(r_parts) > 1 and t_parts[-1].lower() == r_parts[0].lower():
+                r_rel_path = "/".join(r_parts[1:])
+
             if r_rel_path == t_log_path or r_rel_path.startswith(f"{t_log_path}/"):
                 target_path = r_rel_path
             else:
@@ -75,13 +111,15 @@ class UpdateDocumentStage:
                             clean_r = "/".join(r_parts[1:])
                         target_path = f"{parent_f.logical_path}/{clean_r}"
                 elif t_log_path:
-                    clean_rel = t_log_path
+                    clean_rel = t_log_path.replace('\\', '/').strip('/')
                     if clean_rel.endswith(f"/{clean_title}"):
                         target_path = clean_rel
                     else:
                         target_path = f"{clean_rel}/{clean_title}"
                 else:
                     target_path = f"{parent_f.logical_path}/{clean_title}"
+
+        target_path = target_path.replace('\\', '/').strip('/')
 
         if not target_path:
             root_prefix = 'Personal' if repo_type == 'personal' else 'Team'

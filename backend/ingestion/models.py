@@ -123,3 +123,75 @@ class ProcessingHistory(models.Model):
 
     def __str__(self):
         return f"{self.pipeline_id} - {self.stage_name} ({self.stage_status})"
+
+
+class ProcessedEmail(models.Model):
+    """
+    Persistent record tracking Gmail IMAP enterprise emails processed by the platform.
+    Ensures idempotent Celery Beat polling and prevents duplicate ingestion of identical email messages.
+    """
+    message_id = models.CharField(
+        max_length=255,
+        unique=True,
+        db_index=True,
+        help_text="Unique Gmail Message-ID header or IMAP UID identifier."
+    )
+    sender = models.CharField(
+        max_length=255,
+        help_text="Sender email address."
+    )
+    recipient = models.CharField(
+        max_length=255,
+        help_text="Recipient enterprise mailbox address."
+    )
+    subject = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Email subject line."
+    )
+    received_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Email received timestamp."
+    )
+    body = models.TextField(
+        blank=True,
+        help_text="Extracted email body content."
+    )
+    has_attachments = models.BooleanField(
+        default=False,
+        help_text="Flag indicating if the email contained file attachments."
+    )
+    attachment_count = models.IntegerField(
+        default=0,
+        help_text="Number of file attachments extracted from the email."
+    )
+    attachment_names = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of attachment filenames extracted."
+    )
+    processed_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Timestamp when the email was processed by the Celery worker."
+    )
+    status = models.CharField(
+        max_length=20,
+        default='SUCCESS',
+        help_text="Processing status (SUCCESS, FAILED, DUPLICATE_SKIPPED)."
+    )
+    error_message = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Error message if email processing encountered an exception."
+    )
+    documents = models.ManyToManyField(
+        Document,
+        blank=True,
+        related_name='source_emails',
+        help_text="Documents created and ingested from this email message (body or attachments)."
+    )
+
+    def __str__(self):
+        return f"Email {self.message_id[:30]} from {self.sender} ({self.status})"
+

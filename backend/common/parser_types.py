@@ -8,3 +8,4 @@ class ParserType(str, Enum):
     TEXT = "TEXT"
     IMAGE = "IMAGE"
     API = "API"
+    DOCX = "DOCX"

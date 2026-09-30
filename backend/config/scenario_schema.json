@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PolicyScenarioInputSchema",
+  "type": "object",
+  "properties": {
+    "scenario_name": {
+      "type": "string",
+      "description": "Descriptive title of the policy scenario."
+    },
+    "policy_changes": {
+      "type": "object",
+      "properties": {
+        "OverTime": {
+          "type": "string",
+          "enum": ["Yes", "No"]
+        },
+        "TrainingTimesLastYear": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "WorkLifeBalance": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "JobSatisfaction": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "JobInvolvement": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "PercentSalaryHike": {
+          "type": "integer",
+          "minimum": 11,
+          "maximum": 25
+        },
+        "StockOptionLevel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        }
+      },
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "target_filters": {
+      "type": "object",
+      "properties": {
+        "Department": {
+          "type": "string",
+          "enum": ["Sales", "Research & Development", "Human Resources"]
+        },
+        "JobRole": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": ["policy_changes"]
+}

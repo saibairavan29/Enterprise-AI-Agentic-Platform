@@ -136,8 +136,8 @@ class ReviewService:
         old_review_status = review.review_status
         old_conflict_status = review.conflict.status
         
-        # Can only resolve if approved or under review
-        if old_review_status not in ['APPROVED', 'UNDER_REVIEW']:
+        # Can resolve if approved, under review, or pending
+        if old_review_status not in ['APPROVED', 'UNDER_REVIEW', 'PENDING']:
             raise ValueError(f"Cannot resolve conflict in review status state '{old_review_status}'.")
             
         ReviewValidator.validate_review_payload({"resolution": resolution_type})

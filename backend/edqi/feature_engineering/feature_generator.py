@@ -58,12 +58,12 @@ class FeatureGenerator:
             "invalid_fields": invalid_count,
             "duplicate_fields": duplicate_count,
             "record_age": int(record_age_days) if record_age_days is not None else 0,
-            "quality_score": round(overall_score, 2),
-            "completeness_score": round(scores.get(DataQualityDimension.COMPLETENESS.value, 100.0), 2),
-            "validity_score": round(scores.get(DataQualityDimension.VALIDITY.value, 100.0), 2),
-            "consistency_score": round(scores.get(DataQualityDimension.CONSISTENCY.value, 100.0), 2),
-            "uniqueness_score": round(scores.get(DataQualityDimension.UNIQUENESS.value, 100.0), 2),
-            "timeliness_score": round(scores.get(DataQualityDimension.TIMELINESS.value, 100.0), 2),
+            "quality_score": round(overall_score, 2) if overall_score is not None else 100.0,
+            "completeness_score": round(scores.get(DataQualityDimension.COMPLETENESS.value) if scores.get(DataQualityDimension.COMPLETENESS.value) is not None else 100.0, 2),
+            "validity_score": round(scores.get(DataQualityDimension.VALIDITY.value) if scores.get(DataQualityDimension.VALIDITY.value) is not None else 100.0, 2),
+            "consistency_score": round(scores.get(DataQualityDimension.CONSISTENCY.value) if scores.get(DataQualityDimension.CONSISTENCY.value) is not None else 100.0, 2),
+            "uniqueness_score": round(scores.get(DataQualityDimension.UNIQUENESS.value) if scores.get(DataQualityDimension.UNIQUENESS.value) is not None else 100.0, 2),
+            "timeliness_score": round(scores.get(DataQualityDimension.TIMELINESS.value) if scores.get(DataQualityDimension.TIMELINESS.value) is not None else 100.0, 2),
             "feature_names": feature_keys
         }
 

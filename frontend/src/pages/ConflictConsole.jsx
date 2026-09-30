@@ -100,14 +100,23 @@ const ConflictConsole = () => {
   };
 
   const handleSubmitReview = async (statusType) => {
-    if (!activeReview) return;
+    if (!selectedConflict) return;
     setActionProcessing(true);
     setErrorMsg('');
     setSuccessMsg('');
     try {
+      let currentReview = activeReview;
+      if (!currentReview) {
+        const startRes = await client.post(`conflicts/${selectedConflict.conflict_id}/review/`, { action: "start" });
+        if (startRes.data && startRes.data.success) {
+          currentReview = startRes.data.data;
+        }
+      }
+      
+      const reviewId = currentReview?.review_id;
       const res = await client.post(`conflicts/${selectedConflict.conflict_id}/review/`, {
         action: "submit",
-        review_id: activeReview.review_id,
+        review_id: reviewId,
         decision: decision,
         status: statusType,
         comments: comments
@@ -116,10 +125,16 @@ const ConflictConsole = () => {
       if (res.data && res.data.success) {
         setSuccessMsg(`Review decision submitted: ${statusType}`);
         setActiveReview(res.data.data);
-        // Refresh details
-        const detailsRes = await client.get(`conflicts/${selectedConflict.conflict_id}/`);
-        if (detailsRes.data && detailsRes.data.success) {
-          setSelectedConflict(detailsRes.data.data);
+        if (statusType === 'REJECTED' || decision === 'FALSE_POSITIVE') {
+          // Immediately remove rejected/false positive conflict from active view
+          setConflicts(prev => prev.filter(c => c.conflict_id !== selectedConflict.conflict_id));
+          setSelectedConflict(null);
+          setSelectedPair(null);
+        } else {
+          const detailsRes = await client.get(`conflicts/${selectedConflict.conflict_id}/`);
+          if (detailsRes.data && detailsRes.data.success) {
+            setSelectedConflict(detailsRes.data.data);
+          }
         }
         fetchConflicts();
         fetchStats();
@@ -132,7 +147,7 @@ const ConflictConsole = () => {
   };
 
   const handleResolve = async (resolutionType) => {
-    if (!activeReview) return;
+    if (!selectedConflict) return;
     setActionProcessing(true);
     setErrorMsg('');
     setSuccessMsg('');
@@ -149,20 +164,28 @@ const ConflictConsole = () => {
     }
     
     try {
+      let currentReview = activeReview;
+      if (!currentReview) {
+        const startRes = await client.post(`conflicts/${selectedConflict.conflict_id}/review/`, { action: "start" });
+        if (startRes.data && startRes.data.success) {
+          currentReview = startRes.data.data;
+        }
+      }
+
+      const reviewId = currentReview?.review_id;
       const res = await client.post(`conflicts/${selectedConflict.conflict_id}/resolve/`, {
-        review_id: activeReview.review_id,
+        review_id: reviewId,
         resolution: resolutionType,
         custom_edit_data: editPayload
       });
       
       if (res.data && res.data.success) {
         setSuccessMsg(`Conflict resolved successfully using: ${resolutionType}`);
-        // Refresh details
-        const detailsRes = await client.get(`conflicts/${selectedConflict.conflict_id}/`);
-        if (detailsRes.data && detailsRes.data.success) {
-          setSelectedConflict(detailsRes.data.data);
-          setActiveReview(null);
-        }
+        // Remove resolved conflict from active view immediately
+        setConflicts(prev => prev.filter(c => c.conflict_id !== selectedConflict.conflict_id));
+        setSelectedConflict(null);
+        setSelectedPair(null);
+        setActiveReview(null);
         fetchConflicts();
         fetchStats();
       }
@@ -242,16 +265,70 @@ const ConflictConsole = () => {
   const parseFields = (text) => {
     if (!text) return {};
     const fields = {};
-    const parts = text.split('|');
+    const parts = text.split(/[\n|]/);
     parts.forEach(part => {
       const idx = part.indexOf(':');
       if (idx !== -1) {
         const k = part.substring(0, idx).trim();
         const v = part.substring(idx + 1).trim();
-        fields[k] = v;
+        if (k && v) {
+          fields[k] = v;
+        }
       }
     });
     return fields;
+  };
+
+  const renderTextDiffVisualizer = (srcText, tgtText) => {
+    if (!srcText && !tgtText) return null;
+    const linesSrc = (srcText || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const linesTgt = (tgtText || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    const setTgt = new Set(linesTgt);
+    const setSrc = new Set(linesSrc);
+
+    const removed = linesSrc.filter(l => !setTgt.has(l));
+    const added = linesTgt.filter(l => !setSrc.has(l));
+    const shared = linesSrc.filter(l => setTgt.has(l));
+
+    if (removed.length === 0 && added.length === 0) {
+      return (
+        <div className="alert alert-success font-monospace py-2 px-3 small border-0 card bg-success bg-opacity-10 text-success mb-3">
+          ✓ Exact text content match across compared segments.
+        </div>
+      );
+    }
+
+    return (
+      <div className="card border-0 shadow-sm mb-3 bg-white">
+        <div className="card-header bg-dark text-white py-2 px-3 fw-bold small font-monospace d-flex justify-content-between align-items-center">
+          <span>🔍 Detailed Text Line Differences</span>
+          <span className="badge bg-warning text-dark font-monospace" style={{ fontSize: '0.65rem' }}>
+            -{removed.length} Removed / +{added.length} Added / {shared.length} Shared
+          </span>
+        </div>
+        <div className="card-body p-2 font-monospace" style={{ maxHeight: '250px', overflowY: 'auto', fontSize: '0.75rem', backgroundColor: '#1e1e1e', color: '#d4d4d4' }}>
+          {removed.map((line, idx) => (
+            <div key={`rem-${idx}`} style={{ backgroundColor: 'rgba(248, 81, 73, 0.25)', color: '#ff7b72', padding: '2px 8px', borderRadius: '3px', marginBottom: '2px' }}>
+              <span className="user-select-none text-muted me-2" style={{ width: '20px', display: 'inline-block' }}>-</span>
+              {line}
+            </div>
+          ))}
+          {added.map((line, idx) => (
+            <div key={`add-${idx}`} style={{ backgroundColor: 'rgba(46, 160, 67, 0.25)', color: '#7ee787', padding: '2px 8px', borderRadius: '3px', marginBottom: '2px' }}>
+              <span className="user-select-none text-muted me-2" style={{ width: '20px', display: 'inline-block' }}>+</span>
+              {line}
+            </div>
+          ))}
+          {shared.map((line, idx) => (
+            <div key={`sh-${idx}`} style={{ color: '#8b949e', padding: '2px 8px', marginBottom: '2px' }}>
+              <span className="user-select-none text-muted me-2" style={{ width: '20px', display: 'inline-block' }}> </span>
+              {line}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const renderDiffTable = (sourceText, targetText) => {
@@ -320,28 +397,38 @@ const ConflictConsole = () => {
     const recDiffCount = keys.filter(k => k !== 'notes' && String(src[k] ?? '').trim().toLowerCase() !== String(tgt[k] ?? '').trim().toLowerCase()).length;
     
     const hasConflictingFacts = (conflict.evidence?.conflicting_facts?.length || 0) > 0 || variancePoints.length > 0;
-    const textDiff = (conflict.source_text && conflict.target_text && conflict.source_text.trim().toLowerCase() !== conflict.target_text.trim().toLowerCase());
-    
-    const hasDifferences = recDiffCount > 0 || hasConflictingFacts || textDiff;
-    const diffCount = variancePoints.length || recDiffCount || conflict.evidence?.conflicting_facts?.length || (textDiff ? 1 : 0);
+    const diffCount = variancePoints.length || recDiffCount || conflict.evidence?.conflicting_facts?.length || 0;
 
     let reviewDecision = '';
     let decisionBadge = '';
+    let diffSummary = 'No material conflicts detected.';
 
-    if (sim < 0.40) {
+    if (conflict.conflict_type === 'CONSISTENT') {
+      reviewDecision = 'Information is consistent across documents. No material conflicts detected.';
+      decisionBadge = 'CONSISTENT CONTENT';
+      diffSummary = 'No material conflicts detected.';
+    } else if (conflict.conflict_type === 'DUPLICATE') {
+      reviewDecision = 'Exact or near-duplicate document record detected across repository sources.';
+      decisionBadge = 'DUPLICATE RECORD';
+      diffSummary = 'Duplicate content matched.';
+    } else if (conflict.conflict_type === 'CONFLICTING') {
+      const fieldNames = variancePoints.map(p => p.point_name).filter(Boolean).join(', ') || conflict.evidence?.property_differences?.join(', ');
+      reviewDecision = `Material data discrepancies detected${fieldNames ? ' in [' + fieldNames + ']' : ''}. Review changed fields below.`;
+      decisionBadge = 'CONFLICTING DATA';
+      diffSummary = `${diffCount > 0 ? diffCount : 1} material difference(s) detected.`;
+    } else if (sim < 0.40) {
       reviewDecision = 'No meaningful matching content detected.';
       decisionBadge = 'LOW SIMILARITY / UNRELATED';
-    } else if (hasDifferences) {
+      diffSummary = 'Unrelated content.';
+    } else if (diffCount > 0 || hasConflictingFacts) {
       reviewDecision = 'Material differences were detected. Review the changed fields before approval.';
       decisionBadge = 'SIMILAR WITH MATERIAL DIFFERENCE';
+      diffSummary = `${diffCount} difference(s) detected.`;
     } else {
-      reviewDecision = 'Content is identical. Eligible for approval review.';
-      decisionBadge = 'IDENTICAL CONTENT';
+      reviewDecision = 'Content is consistent across sources. Eligible for approval review.';
+      decisionBadge = 'CONSISTENT CONTENT';
+      diffSummary = 'No material conflicts detected.';
     }
-
-    const diffSummary = hasDifferences 
-      ? `${diffCount} difference(s) detected.` 
-      : 'None';
 
     return (
       <div className="card border-primary bg-primary bg-opacity-10 mb-3 text-dark">
@@ -360,10 +447,20 @@ const ConflictConsole = () => {
           )}
           
           <div className="mb-2">
-            <strong className="text-primary small font-monospace d-block">📍 WHERE (File Provenance & Location):</strong>
+            <strong className="text-primary small font-monospace d-block">📍 WHERE (File Format & Provenance):</strong>
             <div className="small text-secondary ps-2">
-              <div>• <strong>Uploaded File:</strong> {srcLocation}</div>
-              <div>• <strong>Current File:</strong> {tgtLocation}</div>
+              <div>
+                • <strong className="text-dark">Uploaded File:</strong> {srcLocation} 
+                <span className="badge bg-secondary ms-2 font-monospace" style={{ fontSize: '0.65rem' }}>
+                  {conflict.evidence?.source_provenance?.type || 'DOCUMENT'}
+                </span>
+              </div>
+              <div>
+                • <strong className="text-dark">Current File:</strong> {tgtLocation}
+                <span className="badge bg-secondary ms-2 font-monospace" style={{ fontSize: '0.65rem' }}>
+                  {conflict.evidence?.target_provenance?.type || 'DOCUMENT'}
+                </span>
+              </div>
             </div>
           </div>
           
@@ -550,30 +647,53 @@ const ConflictConsole = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPairs.map((pair) => (
-                      <tr 
-                        key={pair.pairKey} 
-                        onClick={() => selectPair(pair, 0)}
-                        style={{ cursor: 'pointer' }}
-                        className={selectedPair?.pairKey === pair.pairKey ? 'table-active' : ''}
-                      >
-                        <td className="font-monospace text-success fw-bold small">CONFLICTING</td>
-                        <td className="small text-truncate" style={{ maxWidth: '180px' }}>
-                          <div className="fw-semibold text-dark">{pair.source_title}</div>
-                          <div className="text-muted" style={{ fontSize: '0.75rem' }}>vs {pair.target_title}</div>
-                        </td>
-                        <td className="font-monospace fw-bold text-dark">{(pair.maxSimilarity * 100).toFixed(0)}%</td>
-                        <td className="font-monospace text-primary fw-bold small">
-                          {pair.conflicts.length} Conflict Item{pair.conflicts.length > 1 ? 's' : ''}
-                        </td>
-                        <td className="font-monospace text-dark">{(pair.maxConfidence * 100).toFixed(0)}%</td>
-                        <td>
-                          <span className="badge bg-light border border-secondary text-secondary" style={{ fontSize: '0.65rem' }}>
-                            {pair.pendingCount > 0 ? 'Needs Review' : 'Verified'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredPairs.map((pair) => {
+                      const types = pair.conflictTypes;
+                      let typeLabel = 'SIMILARITY';
+                      let typeClass = 'badge bg-primary text-white';
+                      if (types.has('CONFLICTING')) {
+                        typeLabel = 'CONFLICTING';
+                        typeClass = 'badge bg-danger text-white';
+                      } else if (types.has('DUPLICATE')) {
+                        typeLabel = 'DUPLICATE';
+                        typeClass = 'badge bg-warning text-dark';
+                      } else if (types.has('OUTDATED')) {
+                        typeLabel = 'OUTDATED';
+                        typeClass = 'badge bg-warning text-dark';
+                      } else if (types.has('CONSISTENT')) {
+                        typeLabel = 'CONSISTENT';
+                        typeClass = 'badge bg-success text-white';
+                      }
+
+                      const itemNoun = typeLabel === 'CONSISTENT' ? 'Matched Item' : typeLabel === 'DUPLICATE' ? 'Duplicate Item' : 'Compared Item';
+
+                      return (
+                        <tr 
+                          key={pair.pairKey} 
+                          onClick={() => selectPair(pair, 0)}
+                          style={{ cursor: 'pointer' }}
+                          className={selectedPair?.pairKey === pair.pairKey ? 'table-active' : ''}
+                        >
+                          <td className="font-monospace small">
+                            <span className={`${typeClass} px-2 py-1 font-monospace`} style={{ fontSize: '0.65rem' }}>{typeLabel}</span>
+                          </td>
+                          <td className="small text-truncate" style={{ maxWidth: '180px' }}>
+                            <div className="fw-semibold text-dark">{pair.source_title}</div>
+                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>vs {pair.target_title}</div>
+                          </td>
+                          <td className="font-monospace fw-bold text-dark">{(pair.maxSimilarity * 100).toFixed(0)}%</td>
+                          <td className="font-monospace text-primary fw-bold small">
+                            {pair.conflicts.length} {itemNoun}{pair.conflicts.length > 1 ? 's' : ''}
+                          </td>
+                          <td className="font-monospace text-dark">{(pair.maxConfidence * 100).toFixed(0)}%</td>
+                          <td>
+                            <span className="badge bg-light border border-secondary text-secondary" style={{ fontSize: '0.65rem' }}>
+                              {pair.pendingCount > 0 ? 'Needs Review' : 'Verified'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -604,28 +724,48 @@ const ConflictConsole = () => {
                   </span>
                 </div>
 
-                {/* Conflict Item Selector Tabs for multi-item file pairs */}
-                {selectedPair && selectedPair.conflicts.length > 1 && (
-                  <div className="mb-3 bg-light p-2 rounded border border-secondary">
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <span className="text-primary font-monospace small fw-bold">
-                        Conflict Items Breakdown ({selectedPair.conflicts.length} Total)
-                      </span>
+                {/* Dynamic Breakdown Selector Tabs for multi-item file pairs */}
+                {selectedPair && selectedPair.conflicts.length > 1 && (() => {
+                  const types = selectedPair.conflictTypes || new Set();
+                  let breakdownTitle = 'Compared Items Breakdown';
+                  let itemPrefix = 'Item';
+                  if (types.has('CONFLICTING')) {
+                    breakdownTitle = 'Conflict Items Breakdown';
+                    itemPrefix = 'Conflict';
+                  } else if (types.has('DUPLICATE')) {
+                    breakdownTitle = 'Duplicate Items Breakdown';
+                    itemPrefix = 'Duplicate';
+                  } else if (types.has('CONSISTENT')) {
+                    breakdownTitle = 'Matched Items Breakdown';
+                    itemPrefix = 'Match';
+                  }
+
+                  return (
+                    <div className="mb-3 bg-light p-2 rounded border border-secondary">
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="text-primary font-monospace small fw-bold">
+                          {breakdownTitle} ({selectedPair.conflicts.length} Total)
+                        </span>
+                      </div>
+                      <div className="d-flex flex-wrap gap-1 overflow-auto" style={{ maxHeight: '80px' }}>
+                        {selectedPair.conflicts.map((item, idx) => {
+                          const itemType = item.conflict_type;
+                          const currentPrefix = itemType === 'CONSISTENT' ? 'Match' : itemType === 'DUPLICATE' ? 'Duplicate' : itemType === 'CONFLICTING' ? 'Conflict' : itemPrefix;
+                          return (
+                            <button
+                              key={item.id || idx}
+                              className={`btn btn-sm font-monospace py-1 px-2 ${selectedConflictIndex === idx ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary text-dark'}`}
+                              onClick={() => selectPair(selectedPair, idx)}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              {currentPrefix} #{idx + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="d-flex flex-wrap gap-1 overflow-auto" style={{ maxHeight: '80px' }}>
-                      {selectedPair.conflicts.map((item, idx) => (
-                        <button
-                          key={item.id || idx}
-                          className={`btn btn-sm font-monospace py-1 px-2 ${selectedConflictIndex === idx ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary text-dark'}`}
-                          onClick={() => selectPair(selectedPair, idx)}
-                          style={{ fontSize: '0.7rem' }}
-                        >
-                          Conflict #{idx + 1}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Review Timeline Milestone progress */}
                 <div className="mb-4 bg-light rounded p-3 border border-secondary">
@@ -743,14 +883,19 @@ const ConflictConsole = () => {
                   
                   const keys = Array.from(new Set([...Object.keys(src), ...Object.keys(tgt)]));
                   keys.forEach(k => {
-                    if (k === 'notes') return;
+                    if (k === 'notes' || k === 'id' || k === 'knowledge_document' || k === 'created_at' || k === 'updated_at') return;
                     const srcVal = src[k] !== null && src[k] !== undefined ? String(src[k]).trim() : '';
                     const tgtVal = tgt[k] !== null && tgt[k] !== undefined ? String(tgt[k]).trim() : '';
-                    if (srcVal.toLowerCase() !== tgtVal.toLowerCase()) {
+                    
+                    // Only include as diff if both sides have values that differ, or if key ID is mismatched
+                    const bothHaveValues = srcVal !== '' && tgtVal !== '';
+                    const isKeyIdMismatch = k === 'employee_id' && (srcVal !== '' || tgtVal !== '');
+                    
+                    if ((bothHaveValues || isKeyIdMismatch) && srcVal.toLowerCase() !== tgtVal.toLowerCase()) {
                       diffs.push({
                         field: k.replace(/_/g, ' ').toUpperCase(),
-                        src: src[k],
-                        tgt: tgt[k]
+                        src: srcVal || 'N/A',
+                        tgt: tgtVal || 'N/A'
                       });
                     }
                   });
@@ -765,7 +910,7 @@ const ConflictConsole = () => {
                     });
                   }
 
-                  if (diffs.length === 0 && selectedConflict.source_text && selectedConflict.target_text) {
+                  if (diffs.length === 0 && selectedConflict.conflict_type === 'CONFLICTING' && selectedConflict.source_text && selectedConflict.target_text) {
                     if (selectedConflict.source_text.trim().toLowerCase() !== selectedConflict.target_text.trim().toLowerCase()) {
                       diffs.push({
                         field: 'DOCUMENT CONTENT',
@@ -777,23 +922,35 @@ const ConflictConsole = () => {
 
                   if (diffs.length > 0) {
                     return (
-                      <div className="table-responsive rounded border border-secondary mb-3 bg-white">
-                        <table className="table table-striped table-hover align-middle mb-0 text-dark small">
-                          <thead className="table-light">
+                      <div className="table-responsive rounded border border-secondary mb-3 bg-white" style={{ maxWidth: '100%', overflowX: 'auto' }}>
+                        <table className="table table-striped table-hover align-middle mb-0 text-dark small" style={{ tableLayout: 'fixed', width: '100%' }}>
+                          <thead className="table-light font-monospace" style={{ fontSize: '0.75rem' }}>
                             <tr>
-                              <th className="fw-bold">Field</th>
-                              <th className="text-danger fw-bold">Uploaded Record</th>
-                              <th className="text-success fw-bold">Current Record</th>
+                              <th style={{ width: '28%' }}>Field</th>
+                              <th className="text-danger" style={{ width: '36%' }}>Uploaded Record</th>
+                              <th className="text-success" style={{ width: '36%' }}>Current Record</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {diffs.map((d, idx) => (
-                              <tr key={idx}>
-                                <td className="fw-bold text-dark font-monospace">{d.field}</td>
-                                <td className="text-danger font-monospace fw-bold">{d.src !== null && d.src !== undefined ? String(d.src) : <span className="text-muted small">None</span>}</td>
-                                <td className="text-success font-monospace fw-bold">{d.tgt !== null && d.tgt !== undefined ? String(d.tgt) : <span className="text-muted small">None</span>}</td>
-                              </tr>
-                            ))}
+                            {diffs.map((d, idx) => {
+                              let srcDisplay = d.src !== null && d.src !== undefined ? String(d.src) : '';
+                              let tgtDisplay = d.tgt !== null && d.tgt !== undefined ? String(d.tgt) : '';
+                              if (d.field === 'DOCUMENT CONTENT') {
+                                if (srcDisplay.length > 120) srcDisplay = srcDisplay.substring(0, 120) + '...';
+                                if (tgtDisplay.length > 120) tgtDisplay = tgtDisplay.substring(0, 120) + '...';
+                              }
+                              return (
+                                <tr key={idx}>
+                                  <td className="fw-bold text-dark font-monospace" style={{ wordBreak: 'break-word', fontSize: '0.75rem' }}>{d.field}</td>
+                                  <td className="text-danger font-monospace fw-bold" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>
+                                    {srcDisplay || <span className="text-muted small">None</span>}
+                                  </td>
+                                  <td className="text-success font-monospace fw-bold" style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>
+                                    {tgtDisplay || <span className="text-muted small">None</span>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -806,6 +963,41 @@ const ConflictConsole = () => {
                     );
                   }
                 })()}
+
+                {/* Extracted Document Content Preview Box */}
+                {selectedConflict.source_text && selectedConflict.target_text && (
+                  <div className="card bg-white border border-secondary mb-3 shadow-sm">
+                    <div className="card-header bg-light text-dark py-1 px-3 d-flex justify-content-between align-items-center">
+                      <span className="fw-bold small font-monospace">📖 Extracted Content Comparison</span>
+                      <span className="badge bg-success font-monospace" style={{ fontSize: '0.65rem' }}>
+                        OCR & Content Engine Extracted
+                      </span>
+                    </div>
+                    <div className="card-body p-2">
+                      <div className="row g-2">
+                        <div className="col-12 col-md-6">
+                          <div className="text-secondary fw-semibold font-monospace mb-1" style={{ fontSize: '0.65rem' }}>
+                            Uploaded File ({selectedPair?.source_title || 'Uploaded'}):
+                          </div>
+                          <div className="bg-light p-2 rounded text-dark font-monospace text-break border border-secondary" style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}>
+                            {selectedConflict.source_text}
+                          </div>
+                        </div>
+                        <div className="col-12 col-md-6">
+                          <div className="text-secondary fw-semibold font-monospace mb-1" style={{ fontSize: '0.65rem' }}>
+                            Current File ({selectedPair?.target_title || 'Current'}):
+                          </div>
+                          <div className="bg-light p-2 rounded text-dark font-monospace text-break border border-secondary" style={{ maxHeight: '160px', overflowY: 'auto', fontSize: '0.7rem', whiteSpace: 'pre-wrap' }}>
+                            {selectedConflict.target_text}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Detailed Text Line Differences Visualizer */}
+                {renderTextDiffVisualizer(selectedConflict.source_text, selectedConflict.target_text)}
 
                 {/* Extra metrics hidden in collapsed Technical Details Accordion */}
                 <div className="accordion accordion-flush bg-white border border-secondary rounded mb-4" id="detailsAccordion">
@@ -874,8 +1066,8 @@ const ConflictConsole = () => {
                       >Reject Candidate</button>
                     </div>
 
-                    {/* Resolution Section (Enabled only after approval or in decision mode) */}
-                    {activeReview.review_status === 'APPROVED' && (
+                    {/* Resolution Section (Accessible directly for selected conflict) */}
+                    {selectedConflict && (
                       <div className="border-top border-secondary pt-3 mt-3">
                         <h6 className="text-dark fw-bold mb-3 font-monospace">Choose Resolution Option</h6>
                         

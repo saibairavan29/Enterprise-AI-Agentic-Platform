@@ -57,38 +57,24 @@ class CandidateOrchestrationService:
         from common.unified_file_extractor import UnifiedFileExtractor
         from ..models import KnowledgeConflict, KnowledgeCandidate
         
-        # 2. Fetch registry documents and records (Strictly active repository objects with existing physical files)
+        # 2. Fetch registry documents and records (Strictly active Team Repository objects with existing physical files)
         raw_docs = list(self.doc_repo.list_active())
         docs = []
         for d in raw_docs:
-            if d.repository_status == 'ACTIVE' and (not d.folder or not d.folder.is_deleted):
+            meta_repo = d.metadata.get('repository_type') if isinstance(d.metadata, dict) else None
+            folder_repo = d.folder.repository_type if d.folder else None
+            path_str = (d.logical_path or '').lower()
+            
+            is_personal = meta_repo == 'personal' or folder_repo == 'personal' or path_str.startswith('personal/')
+            
+            if d.repository_status == 'ACTIVE' and not is_personal and (not d.folder or not d.folder.is_deleted):
                 resolved_p = UnifiedFileExtractor.resolve_physical_file_path(d)
-                if resolved_p:
+                if resolved_p or (d.record_count and d.record_count > 0) or d.raw_content:
                     docs.append(d)
                     
-        active_doc_ids = set(str(d.id) for d in docs)
-        
-        # Purge stale candidates and conflicts referencing deleted/missing files or previous un-processed runs
-        KnowledgeCandidate.objects.filter(status='GENERATED').delete()
-        
-        KnowledgeCandidate.objects.exclude(
-            source_document_id__in=active_doc_ids
-        ).exclude(
-            target_document_id__in=active_doc_ids
-        ).delete()
-        
-        KnowledgeConflict.objects.exclude(
-            source_document_id__in=active_doc_ids
-        ).exclude(
-            target_document_id__in=active_doc_ids
-        ).delete()
-        
+        active_doc_ids = set(d.id for d in docs)
         records = list(KnowledgeRecord.objects.filter(
-            knowledge_document__repository_status='ACTIVE'
-        ).filter(
-            Q(knowledge_document__folder__isnull=True) | Q(knowledge_document__folder__is_deleted=False)
-        ).exclude(
-            knowledge_document__source_document__status__in=['deleted', 'archived', 'DELETED']
+            knowledge_document_id__in=active_doc_ids
         ))
         CandidateValidator.validate_generation_inputs(docs, records)
         
@@ -152,7 +138,7 @@ class CandidateOrchestrationService:
         deduplicated, duplicates_removed = CandidateDeduplicator.deduplicate(raw_candidates)
         
         # Limit comparison counts for fast interactive scanning
-        max_limit = config.get("max_comparisons", 500)
+        max_limit = config.get("max_comparisons", 150)
         if len(deduplicated) > max_limit:
             logger.info(f"Generated candidates count ({len(deduplicated)}) exceeds max_limit ({max_limit}). Capping to top {max_limit} pairs.")
             deduplicated = deduplicated[:max_limit]

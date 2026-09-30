@@ -59,10 +59,15 @@ class DynamicKnowledgeOrchestrator:
         raw_dir = r"E:\project final year\Enterprise-AI-Agentic-Platform\Uploads\raw"
 
         clean_name = doc.title.strip()
+        clean_no_amp = clean_name.replace('&', '').replace('  ', ' ').strip()
         possible_file_paths.append(os.path.join(test_dir, clean_name))
         possible_file_paths.append(os.path.join(raw_dir, clean_name))
         possible_file_paths.append(os.path.join(test_dir, clean_name.replace(' ', '_')))
         possible_file_paths.append(os.path.join(raw_dir, clean_name.replace(' ', '_')))
+        possible_file_paths.append(os.path.join(test_dir, clean_no_amp))
+        possible_file_paths.append(os.path.join(raw_dir, clean_no_amp))
+        possible_file_paths.append(os.path.join(test_dir, clean_no_amp.replace(' ', '_')))
+        possible_file_paths.append(os.path.join(raw_dir, clean_no_amp.replace(' ', '_')))
         possible_file_paths.append(os.path.join(test_dir, clean_name.replace('_', ' ')))
         possible_file_paths.append(os.path.join(raw_dir, clean_name.replace('_', ' ')))
 
@@ -160,6 +165,8 @@ class DynamicKnowledgeOrchestrator:
                     from ingestion.parsers.excel_parser import ExcelParser
                     xls_res = ExcelParser().parse(f_path)
                     text_parts.append(xls_res.get("content", "")[:max_chars])
+                    if isinstance(xls_res.get("structured_data"), dict):
+                        doc_meta["structured_data"] = xls_res.get("structured_data")
 
                 elif ext == '.html' or ext == '.mhtml':
                     with open(f_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -170,7 +177,14 @@ class DynamicKnowledgeOrchestrator:
                         if clean_h:
                             text_parts.append(clean_h)
 
-                elif ext in ['.txt', '.md', '.json', '.csv']:
+                elif ext == '.csv':
+                    from ingestion.parsers.csv_parser import CSVParser
+                    csv_res = CSVParser().parse(f_path)
+                    text_parts.append(csv_res.get("content", "")[:max_chars])
+                    if isinstance(csv_res.get("structured_data"), dict):
+                        doc_meta["structured_data"] = csv_res.get("structured_data")
+
+                elif ext in ['.txt', '.md', '.json']:
                     with open(f_path, 'r', encoding='utf-8', errors='ignore') as f:
                         content = f.read(max_chars)
                         if content:
@@ -213,10 +227,17 @@ class DynamicKnowledgeOrchestrator:
         if any(k in query_lower for k in ["access control", "permission", "authorized", "private repo", "restricted document", "can i access"]):
             return "SECURITY_AUTHORIZATION"
 
+        # Explicit negation check for conflict / duplicate analysis
+        has_conflict_negation = any(k in query_lower for k in [
+            "no conflict", "do not perform conflict", "dont perform conflict", "without conflict",
+            "do not run conflict", "do not classify", "not conflict", "do not output any conflict",
+            "single-source", "single source", "only the actual source", "use only"
+        ])
+
         # 2. Conflict & Duplicate Detection
-        if any(k in query_lower for k in ["conflict", "ekcd", "contradict", "discrepancy", "mismatch", "inconsistent record"]):
+        if not has_conflict_negation and any(k in query_lower for k in ["conflict", "ekcd", "contradict", "discrepancy", "mismatch", "inconsistent record"]):
             return "CONFLICT_DETECTION"
-        if any(k in query_lower for k in ["duplicate", "repeated record", "duplicate id", "identical record", "repeated entry"]):
+        if not has_conflict_negation and any(k in query_lower for k in ["duplicate", "repeated record", "duplicate id", "identical record", "repeated entry"]):
             return "DUPLICATE_DETECTION"
 
         # 3. Version Diff Analysis
@@ -380,13 +401,17 @@ class DynamicKnowledgeOrchestrator:
                     clean_calc_query = clean_calc_query.replace(td.title.lower(), "")
         clean_calc_query = re.sub(r'[\w\-]+\.(xlsx|csv|pdf|docx|txt|json|jpg|png|jpeg)', '', clean_calc_query).strip()
 
-        if any(k in clean_calc_query for k in ["sales_revenue", "sales revenue", "revenue", "total sales", "sales"]):
+        if any(k in clean_calc_query for k in ["sales_revenue", "sales revenue", "revenue", "total sales", "sales value", "order value", "highest-value"]):
             calc_fields.append("Sales_Revenue")
 
         if any(k in clean_calc_query for k in ["monthly_salary", "monthly salary", "salary", "income", "compensation", "earnings"]):
             calc_fields.append("Monthly_Salary")
 
-        if any(k in clean_calc_query for k in ["units_sold", "units sold", "quantity", "units"]):
+        if any(k in clean_calc_query for k in ["unit_price", "unit price", "unitprice", "price", "priced", "costliest", "expensive", "rate"]):
+            calc_fields.append("Unit_Price")
+
+        has_price_or_sales_term = any(k in clean_calc_query for k in ["price", "priced", "sales value", "order value", "revenue", "highest-value", "costliest", "expensive"])
+        if any(k in clean_calc_query for k in ["units_sold", "units sold", "quantity", "qty", "units", "items sold", "volume"]) or ("sold" in clean_calc_query and not has_price_or_sales_term):
             calc_fields.append("Units_Sold")
 
         if "attendance" in clean_calc_query:
@@ -452,6 +477,93 @@ class DynamicKnowledgeOrchestrator:
         if "sales" in query_lower and "department" in query_lower and "filter" in query_lower: filters["Department"] = "Sales"
         elif "it" in query_lower and "department" in query_lower and "filter" in query_lower: filters["Department"] = "IT/IS"
 
+        # Dynamic Categorical Filter Extraction across target documents / file stream / database records
+        doc_sources = target_docs if target_docs else list(KnowledgeDocument.objects.exclude(repository_status='DELETED'))
+        if doc_sources:
+            for td in doc_sources:
+                records_data = []
+                recs = list(KnowledgeRecord.objects.filter(knowledge_document=td))
+                for rec in recs:
+                    cdata = rec.canonical_data or {}
+                    afields = rec.additional_fields or {}
+                    merged = {**afields, **cdata}
+                    if merged:
+                        records_data.append(merged)
+                
+                if not records_data:
+                    _, doc_meta = self._extract_document_text_with_meta(td)
+                    s_data = doc_meta.get("structured_data", {})
+                    if isinstance(s_data, dict):
+                        for s_name, s_recs in s_data.items():
+                            if isinstance(s_recs, list):
+                                records_data.extend(s_recs)
+                    fpath = getattr(td.file, 'path', None) if getattr(td, 'file', None) else getattr(td, 'file_path', None)
+                    if not records_data and fpath and os.path.exists(fpath):
+                        ext = os.path.splitext(fpath)[1].lower()
+                        if ext in ['.xlsx', '.xls']:
+                            from ingestion.parsers.excel_parser import ExcelParser
+                            x_res = ExcelParser().parse(fpath)
+                            s_data = x_res.get("structured_data", {})
+                            for s_name, s_recs in s_data.items():
+                                if isinstance(s_recs, list):
+                                    records_data.extend(s_recs)
+                        elif ext == '.csv':
+                            from ingestion.parsers.csv_parser import CSVParser
+                            c_res = CSVParser().parse(fpath)
+                            s_data = c_res.get("structured_data", {})
+                            for s_name, s_recs in s_data.items():
+                                if isinstance(s_recs, list):
+                                    records_data.extend(s_recs)
+
+                filter_stop_words = {
+                    "sales", "orders", "sales_orders", "csv", "xlsx", "pdf", "docx", "total", "sum",
+                    "average", "count", "net_amount", "amount", "price", "unit_price", "quantity",
+                    "units", "product", "item", "department", "business_unit", "business", "unit",
+                    "report", "data", "dataset", "record", "records"
+                }
+
+                # Check if query is asking for multi-category grouping or listing across categories
+                is_grouping_or_multi = (
+                    intent in ["GROUPED_ANALYSIS", "STRUCTURED_DATA_ANALYSIS"] or
+                    any(k in query_lower for k in ["group", "list every", "under", "breakdown", "across"])
+                )
+
+                # Collect all distinct matched department values in query
+                matched_dept_vals = set()
+                for r in records_data:
+                    for k, v in r.items():
+                        if v and isinstance(v, str) and len(v.strip()) >= 2:
+                            clean_k = k.lower().replace('_', ' ')
+                            clean_v = v.strip().lower()
+                            if clean_v in filter_stop_words:
+                                continue
+                            if ("dept" in clean_k or "department" in clean_k or "business" in clean_k) and re.search(r'\b' + re.escape(clean_v) + r'\b', query_lower):
+                                matched_dept_vals.add(v.strip())
+
+                # If multiple department values are mentioned (e.g. AI Engineering, Sales, Operations), do not set a single filter
+                if len(matched_dept_vals) > 1 or is_grouping_or_multi:
+                    pass
+                else:
+                    for r in records_data:
+                        for k, v in r.items():
+                            if v and isinstance(v, str) and len(v.strip()) >= 2:
+                                clean_k = k.lower().replace('_', ' ')
+                                clean_v = v.strip().lower()
+                                if clean_v in filter_stop_words:
+                                    continue
+                                if re.search(r'\b' + re.escape(clean_v) + r'\b', query_lower):
+                                    if "dept" in clean_k or "department" in clean_k or "business" in clean_k:
+                                        if any(fg in query_lower for fg in ["filter by department", "department is", "business unit is", "where department", "where business unit"]):
+                                            filters["Department"] = v.strip()
+                                    elif "status" in clean_k:
+                                        filters["Status"] = v.strip()
+                                    elif "role" in clean_k or "designation" in clean_k:
+                                        filters["Role"] = v.strip()
+                                    elif "category" in clean_k:
+                                        filters["Category"] = v.strip()
+                                    elif "region" in clean_k or "location" in clean_k:
+                                        filters["Region"] = v.strip()
+
         # Grouping dimensions: Dynamic category target extraction
         group_by = None
         m_which = re.search(r'\b(?:in\s+)?which\s+([a-z0-9_\-]+)\b', query_lower)
@@ -500,6 +612,22 @@ class DynamicKnowledgeOrchestrator:
         elif intent == "COMPARISON" or any(k in query_lower for k in ["compare", "versus", "vs"]):
             operation = "COMPARISON"
 
+        # Explicit Page Scope Parsing
+        requested_pages = []
+        m_single_page = re.findall(r'\bpage\s*#?\s*(\d+)\b', query_lower)
+        m_multi_pages = re.findall(r'\bpages?\s*([\d\s,and]+)', query_lower)
+        if m_single_page:
+            for p_str in m_single_page:
+                n = int(p_str)
+                if n not in requested_pages:
+                    requested_pages.append(n)
+        if m_multi_pages:
+            for match_str in m_multi_pages:
+                nums = [int(n) for n in re.findall(r'\b\d+\b', match_str)]
+                for n in nums:
+                    if n not in requested_pages:
+                        requested_pages.append(n)
+
         return {
             "query_id": str(uuid.uuid4()),
             "intent": intent,
@@ -513,7 +641,8 @@ class DynamicKnowledgeOrchestrator:
             "filters": filters,
             "group_by": group_by,
             "operation": operation,
-            "digits": digits
+            "digits": digits,
+            "requested_pages": requested_pages
         }
 
     def execute_query(self, query: str, user=None) -> Dict[str, Any]:
@@ -661,7 +790,7 @@ class DynamicKnowledgeOrchestrator:
                 doc_ext = os.path.splitext(target_doc.title)[1].lower()
                 # For non-spreadsheet files (PDF, OCR, DOCX, TXT, HTML), ALWAYS extract document text into vector_evidence
                 if doc_ext not in ['.csv', '.xlsx', '.xls']:
-                    doc_text, doc_meta = self._extract_document_text_with_meta(target_doc, max_chars=32000)
+                    doc_text, doc_meta = self._extract_document_text_with_meta(target_doc, max_chars=64000)
                     active_doc_meta.update(doc_meta)
 
                     if doc_text and doc_text.strip():
@@ -794,7 +923,10 @@ class DynamicKnowledgeOrchestrator:
                             doc_title=target_doc.title,
                             doc_id=str(target_doc.id)
                         )
-                        if res.get("evidence_item"):
+                        if res.get("evidence_items"):
+                            vector_evidence.extend(res["evidence_items"])
+                            executed_structured_engine = True
+                        elif res.get("evidence_item"):
                             vector_evidence.append(res["evidence_item"])
                             executed_structured_engine = True
 
@@ -1047,6 +1179,18 @@ class DynamicKnowledgeOrchestrator:
             if filtered_evidence:
                 vector_evidence = filtered_evidence
 
+        # Page-Level Pre-Filtering: Keep only items matching explicit requested_pages scope
+        if plan.get("requested_pages") and vector_evidence:
+            req_set = set(plan["requested_pages"])
+            page_filtered = []
+            for item in vector_evidence:
+                if isinstance(item, dict):
+                    p_num = item.get("location_meta", {}).get("page")
+                    if p_num is not None and p_num in req_set:
+                        page_filtered.append(item)
+            if page_filtered:
+                vector_evidence = page_filtered
+
         # 6. SOURCE PROVENANCE ATTACHMENT
         for doc in vector_evidence:
             sources.append({
@@ -1098,12 +1242,18 @@ class DynamicKnowledgeOrchestrator:
             kg_paths=kg_paths,
             grounded_reasoning_state=grounded_reasoning_state
         )
-        answer = response_levels.get("level_1") or self.llm_client.synthesize_answer(
-            query=query,
-            context_chunks=vector_evidence,
-            kg_paths=kg_paths,
-            grounded_reasoning_state=grounded_reasoning_state
-        )
+        l1_val = response_levels.get("level_1")
+        if isinstance(l1_val, dict):
+            answer = l1_val.get("text", "")
+        elif isinstance(l1_val, str) and l1_val:
+            answer = l1_val
+        else:
+            answer = self.llm_client.synthesize_answer(
+                query=query,
+                context_chunks=vector_evidence,
+                kg_paths=kg_paths,
+                grounded_reasoning_state=grounded_reasoning_state
+            )
         latency = round(time.time() - start_time, 2)
 
         if is_document_scoped:

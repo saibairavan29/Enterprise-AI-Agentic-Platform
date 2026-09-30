@@ -120,12 +120,13 @@ class UnifiedFileExtractor:
 
         ext = os.path.splitext(file_path)[1].lower().lstrip('.')
 
+        res = fallback_res
         try:
             if ext == 'pdf':
                 from ingestion.parsers.pdf_parser import PDFParser
                 parser_res = PDFParser().parse(file_path)
                 meta = parser_res.get("metadata", {})
-                return {
+                res = {
                     "file_path": file_path,
                     "file_type": "pdf",
                     "content": parser_res.get("content", ""),
@@ -140,7 +141,7 @@ class UnifiedFileExtractor:
                 parser_res = ExcelParser().parse(file_path)
                 meta = parser_res.get("metadata", {})
                 sheets = meta.get("sheets", [])
-                return {
+                res = {
                     "file_path": file_path,
                     "file_type": "excel",
                     "content": parser_res.get("content", ""),
@@ -154,7 +155,7 @@ class UnifiedFileExtractor:
                 from ingestion.parsers.image_parser import ImageParser
                 parser_res = ImageParser().parse(file_path)
                 meta = parser_res.get("metadata", {})
-                return {
+                res = {
                     "file_path": file_path,
                     "file_type": "image",
                     "content": parser_res.get("content", ""),
@@ -167,7 +168,7 @@ class UnifiedFileExtractor:
             elif ext == 'csv':
                 from ingestion.parsers.csv_parser import CSVParser
                 parser_res = CSVParser().parse(file_path)
-                return {
+                res = {
                     "file_path": file_path,
                     "file_type": "csv",
                     "content": parser_res.get("content", ""),
@@ -180,7 +181,7 @@ class UnifiedFileExtractor:
             elif ext in ['docx', 'doc']:
                 from ingestion.parsers.docx_parser import DocxParser
                 parser_res = DocxParser().parse(file_path)
-                return {
+                res = {
                     "file_path": file_path,
                     "file_type": "docx",
                     "content": parser_res.get("content", ""),
@@ -197,7 +198,7 @@ class UnifiedFileExtractor:
                     parser_res = JSONParser().parse(file_path)
                 else:
                     parser_res = TextParser().parse(file_path)
-                return {
+                res = {
                     "file_path": file_path,
                     "file_type": ext,
                     "content": parser_res.get("content", ""),
@@ -210,4 +211,6 @@ class UnifiedFileExtractor:
         except Exception as e:
             logger.error(f"UnifiedFileExtractor failed for {file_path}: {e}", exc_info=True)
 
-        return fallback_res
+        if file_path:
+            cls._file_extracted_cache[file_path] = res
+        return res

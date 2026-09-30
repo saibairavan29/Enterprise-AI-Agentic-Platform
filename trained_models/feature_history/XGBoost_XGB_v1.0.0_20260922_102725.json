@@ -1,0 +1,25 @@
+{
+    "model_version": "XGB_v1.0.0_20260922_102725",
+    "algorithm": "XGBoost",
+    "dataset_version": "v2.0.0",
+    "feature_version": "1.0",
+    "timestamp": "2026-09-22T04:57:25.788705Z",
+    "feature_importance": {
+        "missing_fields": 0.015093879774212837,
+        "invalid_fields": 0.0,
+        "duplicate_fields": 0.0032970907632261515,
+        "record_age": 0.0,
+        "quality_score": 0.981609046459198,
+        "completeness_score": 0.0,
+        "validity_score": 0.0,
+        "consistency_score": 0.0,
+        "uniqueness_score": 0.0,
+        "timeliness_score": 0.0
+    },
+    "training_configuration": {
+        "n_estimators": 300,
+        "learning_rate": 0.1,
+        "max_depth": 8,
+        "random_state": 42
+    }
+}

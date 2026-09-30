@@ -55,48 +55,52 @@ class ResolutionService:
         try:
             with transaction.atomic():
                 if resolution_type == 'KEEP_SOURCE':
-                    # Increment target document version to align and store link
-                    new_ver = tgt_doc.current_version + 1
-                    doc_id = tgt_doc.id
-                    
-                    # Create immutable version snapshot
-                    KnowledgeDocumentVersion.objects.create(
-                        knowledge_document=tgt_doc,
-                        version=new_ver,
-                        raw_content=tgt_doc.raw_content,
-                        checksum=f"link-{review_id}",
-                        change_summary={
-                            "previous_version": tgt_doc.current_version,
-                            "new_version": new_ver,
-                            "resolution": "KEEP_SOURCE",
-                            "review_id": str(review_id),
-                            "reason": f"Aligned with source document {src_doc.title}."
-                        }
-                    )
-                    tgt_doc.current_version = new_ver
-                    tgt_doc.save(update_fields=['current_version'])
-
-                elif resolution_type == 'KEEP_TARGET':
-                    # Increment source document version to align
-                    new_ver = src_doc.current_version + 1
+                    # Keep source (uploaded document), archive target (existing document)
+                    new_ver = src_doc.current_version
                     doc_id = src_doc.id
                     
-                    # Create immutable version snapshot
+                    if tgt_doc:
+                        tgt_doc.repository_status = 'ARCHIVED'
+                        tgt_doc.save(update_fields=['repository_status'])
+                    
+                    # Log immutable version snapshot
                     KnowledgeDocumentVersion.objects.create(
                         knowledge_document=src_doc,
                         version=new_ver,
                         raw_content=src_doc.raw_content,
                         checksum=f"link-{review_id}",
                         change_summary={
-                            "previous_version": src_doc.current_version,
+                            "previous_version": old_ver,
                             "new_version": new_ver,
-                            "resolution": "KEEP_TARGET",
+                            "resolution": "KEEP_SOURCE",
                             "review_id": str(review_id),
-                            "reason": f"Aligned with target document {tgt_doc.title}."
+                            "reason": f"Kept uploaded file {src_doc.title}, archived conflicting file {tgt_doc.title if tgt_doc else ''}."
                         }
                     )
-                    src_doc.current_version = new_ver
-                    src_doc.save(update_fields=['current_version'])
+
+                elif resolution_type == 'KEEP_TARGET':
+                    # Keep target (existing document), archive source (uploaded document)
+                    new_ver = tgt_doc.current_version if tgt_doc else old_ver
+                    doc_id = tgt_doc.id if tgt_doc else src_doc.id
+                    
+                    if src_doc:
+                        src_doc.repository_status = 'ARCHIVED'
+                        src_doc.save(update_fields=['repository_status'])
+                    
+                    if tgt_doc:
+                        KnowledgeDocumentVersion.objects.create(
+                            knowledge_document=tgt_doc,
+                            version=new_ver,
+                            raw_content=tgt_doc.raw_content,
+                            checksum=f"link-{review_id}",
+                            change_summary={
+                                "previous_version": tgt_doc.current_version,
+                                "new_version": new_ver,
+                                "resolution": "KEEP_TARGET",
+                                "review_id": str(review_id),
+                                "reason": f"Kept existing file {tgt_doc.title}, archived uploaded file {src_doc.title}."
+                            }
+                        )
 
                 elif resolution_type == 'MERGE':
                     # Merge content: create combined records copy on source document

@@ -49,7 +49,7 @@ class CompletenessAnalyzer(BaseAnalyzer):
                         break
             
             # Check for null representation or empty strings
-            if val is None and found_field:
+            if val is None:
                 missing_count += 1
                 
                 issue = {

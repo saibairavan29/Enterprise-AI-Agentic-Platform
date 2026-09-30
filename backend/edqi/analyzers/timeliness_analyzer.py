@@ -38,10 +38,15 @@ class TimelinessAnalyzer(BaseAnalyzer):
                     except Exception:
                         pass
 
-        # If no audit/update field is found in record, default to today
+        # If no audit/update/timestamp field is found in record, mark dimension as NOT_ASSESSABLE
         if not record_date:
-            record_date = datetime.now()
-            date_field = "Current Time (Fallback)"
+            return AnalyzerResult(
+                score=None,
+                issues=[],
+                recommendations=[],
+                execution_time=time.time() - start_time,
+                metadata={"status": "NOT_ASSESSABLE", "reason": "No temporal/timestamp field present in record"}
+            )
 
         checks_run += 1
         now = datetime.now()

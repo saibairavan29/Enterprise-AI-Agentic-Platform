@@ -40,10 +40,10 @@ class SemanticRAGService:
 
         logger.info("Initializing SentenceTransformer model (BAAI/bge-small-en-v1.5)...")
         try:
-            self.model = SentenceTransformer('BAAI/bge-small-en-v1.5')
+            self.model = SentenceTransformer('BAAI/bge-small-en-v1.5', device='cpu')
         except Exception:
             logger.warning("bge-small-en-v1.5 offline; loading all-MiniLM-L6-v2 fallback.")
-            self.model = SentenceTransformer('all-MiniLM-L6-v2')
+            self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
 
         dimension = 384
         self.index = faiss.IndexFlatIP(dimension)
@@ -178,8 +178,18 @@ class SemanticRAGService:
             ]
 
         texts = [c["text"] for c in extracted_chunks]
-        embeddings = self.model.encode(texts, normalize_embeddings=True)
-        self.index.add(np.array(embeddings).astype('float32'))
+        all_embeddings = []
+        batch_sz = 16
+        for i in range(0, len(texts), batch_sz):
+            batch_texts = texts[i:i + batch_sz]
+            b_emb = self.model.encode(batch_texts, normalize_embeddings=True, convert_to_tensor=True)
+            if hasattr(b_emb, 'cpu'):
+                b_emb = b_emb.cpu().tolist()
+            elif hasattr(b_emb, 'tolist'):
+                b_emb = b_emb.tolist()
+            all_embeddings.extend(b_emb)
+
+        self.index.add(np.array(all_embeddings, dtype='float32'))
         self.documents.extend(extracted_chunks)
 
     def search_vector_store(self, query: str, user=None, top_k: int = 4) -> List[Dict[str, Any]]:
@@ -189,12 +199,20 @@ class SemanticRAGService:
         if not self.is_initialized:
             self.initialize_embeddings()
 
-        query_vector = self.model.encode([query], normalize_embeddings=True)
-        scores, indices = self.index.search(np.array(query_vector).astype('float32'), min(top_k * 2, self.index.ntotal))
+        raw_q = self.model.encode([query], normalize_embeddings=True, convert_to_tensor=True)
+        if hasattr(raw_q, 'cpu'):
+            raw_q = raw_q.cpu().tolist()
+        elif hasattr(raw_q, 'tolist'):
+            raw_q = raw_q.tolist()
+        scores, indices = self.index.search(np.array(raw_q, dtype='float32'), min(top_k * 2, self.index.ntotal))
 
         results = []
         for score, idx in zip(scores[0], indices[0]):
             if idx < 0 or idx >= len(self.documents):
+                continue
+
+            # Grounding Threshold Enforcement (similarity >= 0.65)
+            if float(score) < 0.65:
                 continue
             
             doc = self.documents[idx]

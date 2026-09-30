@@ -55,6 +55,8 @@ class DocumentUploadService(BaseService):
             'jpeg': 'image/jpeg',
             'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'xls': 'application/vnd.ms-excel',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'doc': 'application/msword',
             'csv': 'text/csv',
             'txt': 'text/plain',
             'json': 'application/json'
@@ -66,6 +68,8 @@ class DocumentUploadService(BaseService):
             'pdf': ParserType.PDF,
             'xlsx': ParserType.EXCEL,
             'xls': ParserType.EXCEL,
+            'docx': ParserType.DOCX,
+            'doc': ParserType.DOCX,
             'csv': ParserType.CSV,
             'json': ParserType.JSON,
             'txt': ParserType.TEXT,

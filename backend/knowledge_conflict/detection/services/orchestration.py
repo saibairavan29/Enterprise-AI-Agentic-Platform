@@ -116,12 +116,14 @@ class ConflictDetectionOrchestrator:
             
             try:
                 classification, sim_report = detection_service.process_candidate(candidate)
+                overall_sim = sim_report.get("overall_similarity", 0.0)
+                c_type = classification.get("conflict_type", "UNKNOWN")
                 
-                # If similarity metrics show any non-trivial relationship, build conflict model
-                # (E.g. only save if not UNKNOWN, or save everything to maintain full auditable registry)
-                conflict_obj = ConflictBuilder.build(candidate, classification, sim_report, trace)
-                ConflictValidator.validate_conflict_fields(conflict_obj.__dict__)
-                conflicts_to_save.append(conflict_obj)
+                # Only save if similarity meets minimum threshold (>= 25%) or explicit classification match
+                if overall_sim >= 0.25 or c_type in ['CONFLICTING', 'DUPLICATE', 'OUTDATED', 'CONSISTENT']:
+                    conflict_obj = ConflictBuilder.build(candidate, classification, sim_report, trace)
+                    ConflictValidator.validate_conflict_fields(conflict_obj.__dict__)
+                    conflicts_to_save.append(conflict_obj)
                 
                 candidate.status = 'PROCESSED'
             except Exception as e:

@@ -897,15 +897,15 @@ class AssessDatasetQualityView(APIView):
             }
 
             clean_tabular_features = {
-                "completeness_score": completeness,
-                "validity_score": validity,
-                "consistency_score": consistency,
-                "uniqueness_score": uniqueness,
-                "timeliness_score": timeliness,
-                "missing_fields": null_cells,
-                "invalid_fields": invalid_cells,
-                "duplicate_fields": duplicate_rows,
-                "record_age": 0
+                "missing_fields": float(null_cells),
+                "invalid_fields": float(invalid_cells),
+                "duplicate_fields": float(duplicate_rows),
+                "record_age": 0.0,
+                "completeness_score": float(completeness),
+                "validity_score": float(validity),
+                "consistency_score": float(consistency),
+                "uniqueness_score": float(uniqueness),
+                "timeliness_score": float(timeliness)
             }
 
         # ----------------------------------------------------
@@ -1022,6 +1022,7 @@ class AssessDatasetQualityView(APIView):
             words = text_extracted.split()
             word_count = len(words)
             char_count = len(text_extracted)
+            pdf_type_label = "Scanned PDF (OCR)" if ocr_used else ("Native Text PDF" if word_count >= 20 else "Scanned PDF")
 
             extraction_integrity = 95.0 if (word_count >= 20 or ocr_used) else 30.0
             page_coverage = 98.0
@@ -1280,7 +1281,9 @@ class AssessDatasetQualityView(APIView):
 
         # Execute ML prediction strictly if active classifier model exists
         ml_prediction_result = None
-        if clean_tabular_features and file_category == 'tabular' and models_applicability["random_forest"].get("status") == "APPLIED":
+        if clean_tabular_features and file_category == 'tabular':
+            clean_tabular_features["quality_score"] = float(overall_score)
+        if clean_tabular_features and file_category == 'tabular' and models_applicability.get("random_forest", {}).get("status") == "APPLIED":
             try:
                 from edqi.ml_engine.services.prediction_service import PredictionService
                 pred_svc = PredictionService()

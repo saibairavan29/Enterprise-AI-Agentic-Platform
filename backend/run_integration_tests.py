@@ -46,8 +46,8 @@ def run_tests():
     user, username, password = setup_test_user()
     client = APIClient()
     
-    # Reset database records for idempotent runs
-    Document.objects.all().delete()
+    # Only delete temporary test run documents instead of wiping user repository
+    Document.objects.filter(original_filename__in=['corrupted.pdf', 'empty.txt', 'wrong_extension.pdf']).delete()
     
     report = {
         "system_info": {

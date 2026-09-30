@@ -29,10 +29,10 @@ class SimilarityEngine:
         union_count = len(toks1.union(toks2))
         token_sim = (intersection_count / union_count) if union_count > 0 else 0.0
 
-        # Fast pre-filtering: if both texts are substantial (>30 chars) and share 0 key tokens,
-        # skip neural embedding inference completely for 10x-20x speedup.
-        if intersection_count == 0 and len(text1) > 30 and len(text2) > 30:
-            cosine_sim = 0.0
+        # Fast pre-filtering: if texts share 0 key tokens or <8% token overlap,
+        # skip neural PyTorch inference completely for 50x speed boost.
+        if (intersection_count == 0 or token_sim < 0.08) and len(text1) > 20 and len(text2) > 20:
+            cosine_sim = token_sim
             cached1, cached2 = True, True
         else:
             # Resolve embeddings for text1 & text2

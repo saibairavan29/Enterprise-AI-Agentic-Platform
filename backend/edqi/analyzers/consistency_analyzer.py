@@ -110,6 +110,53 @@ class ConsistencyAnalyzer(BaseAnalyzer):
                         "recommendation_confidence": conf
                     })
 
+        # 3. Derived Field Mathematical Consistency Check (e.g. Quantity * Unit_Price == Net_Amount)
+        qty_val = None
+        price_val = None
+        net_val = None
+        qty_field = None
+        price_field = None
+        net_field = None
+
+        for f, v in record.items():
+            f_lower = f.lower()
+            if any(k in f_lower for k in ["qty", "quantity", "units_sold"]):
+                qty_val = v
+                qty_field = f
+            elif any(k in f_lower for k in ["unit_price", "unitprice", "rate"]):
+                price_val = v
+                price_field = f
+            elif any(k in f_lower for k in ["net_amount", "total_amount", "net_price", "total_price"]):
+                net_val = v
+                net_field = f
+
+        if qty_val is not None and price_val is not None and net_val is not None and qty_field != net_field and price_field != net_field:
+            checks_run += 1
+            try:
+                q_num = float(str(qty_val).replace('$', '').replace(',', '').strip())
+                p_num = float(str(price_val).replace('$', '').replace(',', '').strip())
+                n_num = float(str(net_val).replace('$', '').replace(',', '').strip())
+                expected_net = round(q_num * p_num, 2)
+                diff = abs(n_num - expected_net)
+                if diff > 0.05:
+                    violations_count += 1
+                    issues.append({
+                        "field_name": net_field,
+                        "issue_type": "DERIVED_FIELD_MISMATCH",
+                        "severity": "HIGH",
+                        "expected_value": f"{expected_net:,.2f} ({qty_field} {q_num} * {price_field} {p_num})",
+                        "actual_value": f"{n_num:,.2f}",
+                        "description": f"Derived field '{net_field}' ({n_num:,.2f}) does not equal expected calculation {q_num} x {p_num} = {expected_net:,.2f} (Difference: {diff:,.2f}).",
+                        "tags": ["Business_Rule", "Mathematical_Consistency"]
+                    })
+                    recommendations.append({
+                        "field_name": net_field,
+                        "suggested_fix": f"Recalculate {net_field} = {qty_field} x {price_field} ({expected_net:,.2f})",
+                        "recommendation_confidence": 0.95
+                    })
+            except Exception:
+                pass
+
         score = max(0.0, 100.0 - (violations_count * 25.0))
 
         return AnalyzerResult(

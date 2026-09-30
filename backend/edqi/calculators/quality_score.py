@@ -85,6 +85,12 @@ class QualityScoreCalculator:
                 "final_score": 100.0
             }
 
+        if isinstance(file_category, dict) and rules is None:
+            rules = file_category
+            file_category = None
+        elif file_category and not isinstance(file_category, str):
+            file_category = str(file_category)
+
         cat_weights = cls.CATEGORY_WEIGHTS.get(file_category, {}) if file_category else {}
         custom_weights = (rules or {}).get("quality_weights", {})
 
@@ -92,11 +98,13 @@ class QualityScoreCalculator:
         total_weight = 0.0
         weighted_sum = 0.0
 
+        KNOWN_DIMS = {"completeness", "validity", "consistency", "uniqueness", "timeliness"}
         for dim_key, score_val in dimension_scores.items():
-            if dim_key in ["quality_score", "overall_score"] or not isinstance(score_val, (int, float)):
-                continue
-
             clean_key = cls._normalize_key(dim_key)
+            if clean_key not in KNOWN_DIMS:
+                continue
+            if not isinstance(score_val, (int, float)):
+                continue
 
             weight = custom_weights.get(dim_key, custom_weights.get(clean_key,
                      cat_weights.get(dim_key, cat_weights.get(clean_key,

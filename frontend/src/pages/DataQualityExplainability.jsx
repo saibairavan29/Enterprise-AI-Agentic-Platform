@@ -118,7 +118,8 @@ const DataQualityExplainability = () => {
       const res = await client.get('repository/documents/', {
         params: { repository_type: sourceType }
       });
-      const docs = res.data.results || res.data.data || [];
+      const rawDocs = res.data;
+      const docs = Array.isArray(rawDocs) ? rawDocs : (Array.isArray(rawDocs?.data) ? rawDocs.data : (Array.isArray(rawDocs?.results) ? rawDocs.results : []));
       const validDocs = docs.filter(doc => {
         const isPersonalDoc = 
           doc.repository_type === 'personal' ||

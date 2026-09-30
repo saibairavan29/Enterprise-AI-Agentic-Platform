@@ -81,32 +81,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'enterprise_platform.wsgi.application'
 
-# Database
-# PostgreSQL Config with SQLite fallback on connection failure
-try:
-    import psycopg2
-    conn = psycopg2.connect(
-        dbname=os.getenv('DB_NAME', 'enterprise_db'),
-        user=os.getenv('DB_USER', 'postgres'),
-        password=os.getenv('DB_PASSWORD', 'postgres'),
-        host=os.getenv('DB_HOST', 'localhost'),
-        port=os.getenv('DB_PORT', '5432'),
-        connect_timeout=1
-    )
-    conn.close()
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'enterprise_db'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
+# Database Configuration
+# Default to local SQLite3 database for single-machine deployment, or PostgreSQL if USE_POSTGRES=True
+USE_POSTGRES = os.getenv('USE_POSTGRES', 'False').lower() in ('true', '1', 'yes')
+
+if USE_POSTGRES:
+    try:
+        import psycopg2
+        conn = psycopg2.connect(
+            dbname=os.getenv('DB_NAME', 'enterprise_db'),
+            user=os.getenv('DB_USER', 'postgres'),
+            password=os.getenv('DB_PASSWORD', 'postgres'),
+            host=os.getenv('DB_HOST', 'localhost'),
+            port=os.getenv('DB_PORT', '5432'),
+            connect_timeout=1
+        )
+        conn.close()
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.getenv('DB_NAME', 'enterprise_db'),
+                'USER': os.getenv('DB_USER', 'postgres'),
+                'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
+                'HOST': os.getenv('DB_HOST', 'localhost'),
+                'PORT': os.getenv('DB_PORT', '5432'),
+            }
         }
-    }
-except Exception:
-    import sys
-    print("PostgreSQL connection failed. Falling back to local SQLite3 database.", file=sys.stderr)
+    except Exception:
+        USE_POSTGRES = False
+
+if not USE_POSTGRES:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -177,6 +181,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'authentication.jwt_auth.QueryStringOrHeaderJWTAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
@@ -247,4 +252,42 @@ LOGGING = {
 # File Upload Configuration for Large Files (Supports up to 5GB per file)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB max request payload size
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB memory threshold before streaming file to disk temp
+
+# Celery & Redis Queue Configuration
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+
+# Celery Beat Periodic Mailbox Polling Schedule (Default: Every 30 seconds)
+CELERY_BEAT_SCHEDULE = {
+    'poll-gmail-inbox-every-30s': {
+        'task': 'ingestion.tasks.poll_gmail_inbox_task',
+        'schedule': float(os.getenv('GMAIL_POLL_INTERVAL_SECONDS', '30.0')),
+    },
+}
+
+# Enterprise Gmail IMAP Ingestion Configuration
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'imap.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '993'))
+EMAIL_USERNAME = os.getenv('EMAIL_USERNAME', 'erpsystementerprises@gmail.com')
+EMAIL_APP_PASSWORD = os.getenv('EMAIL_APP_PASSWORD', 'ayau xtmx xpkv ebal')
+
+# Authorized Enterprise Email Senders (Read from environment variable AUTHORIZED_EMAIL_SENDERS)
+_default_authorized_senders = [
+    'bharathwaj271192@gmail.com',
+    'saib4618@gmail.com',
+    'yogeshdean27@gmail.com',
+    'dakshana1865@gmail.com',
+    'hemanthkumar0825@gmail.com',
+    'erpsystementerprises@gmail.com'
+]
+_env_authorized_senders = os.getenv('AUTHORIZED_EMAIL_SENDERS', '')
+if _env_authorized_senders and _env_authorized_senders.strip():
+    AUTHORIZED_EMAIL_SENDERS = [s.strip().lower() for s in _env_authorized_senders.split(',') if s.strip()]
+else:
+    AUTHORIZED_EMAIL_SENDERS = [s.strip().lower() for s in _default_authorized_senders]
+
 

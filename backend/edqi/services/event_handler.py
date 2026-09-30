@@ -67,7 +67,13 @@ def handle_repository_sync_completed(sender, **kwargs):
             finally:
                 db.connections.close_all()
 
-        threading.Thread(target=_run_async_assessment, args=(doc.id, pipeline_id, user_id), daemon=True).start()
-        logger.info(f"Dispatched background EDQI quality assessment for Document: {doc.id}")
+        import sys
+        from django.conf import settings
+        is_testing = getattr(settings, 'TESTING', False) or 'test' in sys.argv
+        if is_testing:
+            _run_async_assessment(doc.id, pipeline_id, user_id)
+        else:
+            threading.Thread(target=_run_async_assessment, args=(doc.id, pipeline_id, user_id), daemon=True).start()
+        logger.info(f"Dispatched EDQI quality assessment for Document: {doc.id}")
     except Exception as e:
         logger.error(f"Error initializing EDQI quality assessment signal: {str(e)}", exc_info=True)

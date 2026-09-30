@@ -18,13 +18,18 @@ class RecordExtractor(BaseExtractor):
         canonical = record.canonical_data or {}
         additional = record.additional_fields or {}
         
-        # 1. Compile the entire record as a unified block segment
+        # 1. Compile record fields, ignoring empty/None/N/A values
         field_strs = []
         for key, val in canonical.items():
-            field_strs.append(f"{key}: {val}")
+            if val is not None and str(val).strip() not in ['', 'None', 'null', 'N/A']:
+                field_strs.append(f"{key}: {val}")
         for key, val in additional.items():
-            field_strs.append(f"{key}: {val}")
+            if val is not None and str(val).strip() not in ['', 'None', 'null', 'N/A']:
+                field_strs.append(f"{key}: {val}")
             
+        if not field_strs:
+            return []
+
         full_text = f"Entity Type: {entity_type} | " + " | ".join(field_strs)
         segments.append({
             "segment_id": f"rec-{rec_id}-full",

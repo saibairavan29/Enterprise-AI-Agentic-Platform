@@ -35,7 +35,8 @@ class StructuredAnalyticsEngine:
 
     SALARY_COL_PATTERNS = [
         r'\bmonthly_salary\b', r'\bmonthlysalary\b', r'\bsalary\b', r'\bmonthly_income\b',
-        r'\bannual_salary\b', r'\bcompensation\b', r'\bwage\b', r'\bpay\b'
+        r'\bannual_salary\b', r'\bcompensation\b', r'\bwage\b', r'\bpay\b',
+        r'\baverage_salary\b', r'\btotal_monthly_salary\b'
     ]
 
     SALES_COL_PATTERNS = [
@@ -201,7 +202,7 @@ class StructuredAnalyticsEngine:
             if target_col and target_col in r:
                 r_val = str(r.get(target_col) or "").strip().lower()
                 req_val = str(f_val).strip().lower()
-                if req_val not in r_val and r_val not in req_val:
+                if r_val != req_val:
                     return False
         return True
 
@@ -211,13 +212,14 @@ class StructuredAnalyticsEngine:
         query: str,
         plan: Dict[str, Any],
         doc_title: str,
-        doc_id: str
+        doc_id: str,
+        sheet_name_override: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Analyzes dirty tabular records, performs deterministic schema discovery,
         cleans numeric values, calculates operation-specific sums/averages/rankings,
         and constructs evidence items and authoritative calculation traces.
-        Preserves multi-sheet structural isolation for Excel workbooks.
+        Preserves multi-sheet structural isolation while supporting cross-sheet analysis for Excel workbooks.
         """
         if not records:
             return {
@@ -227,11 +229,43 @@ class StructuredAnalyticsEngine:
                 "audit_counts": {"total_records": 0, "valid_records": 0}
             }
 
-        sheet_name_selected = None
+        sheet_name_selected = sheet_name_override
         per_sheet_counts = {}
 
         if isinstance(records, dict):
             per_sheet_counts = {s: len(recs) for s, recs in records.items() if isinstance(recs, list)}
+            if len(records) > 1 and not sheet_name_override:
+                all_sheet_items = []
+                primary_res = None
+                for s_name, s_recs in records.items():
+                    if isinstance(s_recs, list) and s_recs:
+                        s_res = self.analyze_dataset(
+                            records=s_recs,
+                            query=query,
+                            plan=plan,
+                            doc_title=doc_title,
+                            doc_id=doc_id,
+                            sheet_name_override=s_name
+                        )
+                        if s_res and s_res.get("evidence_item"):
+                            ev_item = s_res["evidence_item"]
+                            sel_cnt = s_res.get("forensic_trace", {}).get("selected_record_count", 0)
+                            if sel_cnt > 0 or not plan.get("filters"):
+                                all_sheet_items.append(ev_item)
+                            if not primary_res:
+                                primary_res = s_res
+
+                if all_sheet_items:
+                    combined_fact_stmt = "\n\n".join([it["text"] for it in all_sheet_items])
+                    return {
+                        "evidence_items": all_sheet_items,
+                        "evidence_item": all_sheet_items[0],
+                        "fact_statement": combined_fact_stmt,
+                        "schema_discovered": primary_res.get("schema_discovered", {}) if primary_res else {},
+                        "forensic_trace": primary_res.get("forensic_trace", {}) if primary_res else {},
+                        "audit_counts": primary_res.get("audit_counts", {}) if primary_res else {}
+                    }
+
             sheet_name_selected, records = self._select_sheet(records, query, plan)
 
         if not isinstance(records, list):
@@ -284,6 +318,7 @@ class StructuredAnalyticsEngine:
         sales_col = self._match_column(all_columns, self.SALES_COL_PATTERNS)
         qty_col = self._match_column(all_columns, self.QTY_COL_PATTERNS)
         item_col = self._match_column(all_columns, self.ITEM_COL_PATTERNS)
+        unit_price_col = self._match_column(all_columns, self.UNIT_PRICE_PATTERNS)
 
         schema_summary = {
             "all_columns": all_columns,
@@ -294,7 +329,8 @@ class StructuredAnalyticsEngine:
             "salary_column": salary_col,
             "sales_column": sales_col,
             "quantity_column": qty_col,
-            "item_column": item_col
+            "item_column": item_col,
+            "unit_price_column": unit_price_col
         }
 
         # 3. OPERATION-SPECIFIC STRUCTURED CALCULATIONS
@@ -320,12 +356,22 @@ class StructuredAnalyticsEngine:
 
         plan_calc_fields = plan.get("calculation_fields", []) if plan else []
 
+        is_price_focused = any(k in query_metric_text for k in ["priced", "unit price", "unitprice", "price per unit", "highest price", "most expensive", "costliest", "rate"])
+        is_sales_value_focused = any(k in query_metric_text for k in ["sales value", "order value", "highest-value", "highest value", "revenue", "net amount", "order total"])
+        is_quantity_focused = (any(k in query_metric_text for k in ["sold", "units sold", "quantity", "qty", "units", "items sold", "volume"]) and not (is_price_focused or is_sales_value_focused))
+
         primary_metric_col = None
-        if ("salary" in query_metric_text or "income" in query_metric_text or "compensation" in query_metric_text) and salary_col:
-            primary_metric_col = salary_col
-        elif ("sales" in query_metric_text or "revenue" in query_metric_text) and sales_col:
+        if is_price_focused and unit_price_col:
+            primary_metric_col = unit_price_col
+        elif is_quantity_focused and qty_col:
+            primary_metric_col = qty_col
+        elif is_sales_value_focused and sales_col:
             primary_metric_col = sales_col
-        elif ("quantity" in query_metric_text or "units" in query_metric_text) and qty_col:
+        elif ("salary" in query_metric_text or "income" in query_metric_text or "compensation" in query_metric_text) and salary_col:
+            primary_metric_col = salary_col
+        elif ("sales" in query_metric_text or "revenue" in query_metric_text or "amount" in query_metric_text or "net amount" in query_metric_text or "net_amount" in query_metric_text or "price" in query_metric_text or "cost" in query_metric_text) and sales_col:
+            primary_metric_col = sales_col
+        elif ("quantity" in query_metric_text or "units" in query_metric_text or "qty" in query_metric_text) and qty_col:
             primary_metric_col = qty_col
 
         # Fallback to search all_columns for any matching numeric column (Finding 8)
@@ -376,7 +422,8 @@ class StructuredAnalyticsEngine:
         # -------------------------------------------------------------
         # PATTERN A (Q3/Finding 8) — RECORD MIN/MAX RANKING OVER METRIC
         # -------------------------------------------------------------
-        if is_ranking_op and primary_metric_col and (not plan_group_by or is_employee_query):
+        is_item_ranking_query = any(k in query_lower for k in ["highest sold item", "highest priced item", "top sold item", "most sold item", "best selling item", "highest selling item", "highest sold product", "top product", "highest sold", "highest priced"])
+        if is_ranking_op and primary_metric_col and (not plan_group_by or is_employee_query or is_item_ranking_query):
             best_rec = None
             best_val = -float('inf') if plan_op != "MIN" else float('inf')
             valid_metric_count = 0
@@ -432,33 +479,53 @@ class StructuredAnalyticsEngine:
         if not employee_ranking_result and group_col_target:
             dept_counts = {}
             dept_sums = {}
+            dept_qty_sums = {}
             dept_record_ids = {}
             dept_values = {}
+            dept_qty_values = {}
             dept_sub_breakdown = {}
-            eval_recs = filtered_records if filtered_records else unique_records
+            dept_record_details = {}
+
+            # Preserving complete record set for grouping (Requirement 1)
+            eval_recs = unique_records if unique_records else records
+            total_source_records = len(eval_recs)
+            all_source_ids = [self._extract_record_id(r, pk_col, all_columns) or f"ROW_{idx}" for idx, r in enumerate(eval_recs, 1)]
+
+            target_m_col = primary_metric_col or sales_col or salary_col
 
             for r in eval_recs:
                 g_val = str(r.get(group_col_target) or "Unknown").strip()
-                if g_val and g_val.lower() not in ["none", "null", "n/a", "nan", ""]:
-                    dept_counts[g_val] = dept_counts.get(g_val, 0) + 1
-                    r_id = self._extract_record_id(r, pk_col, all_columns)
-                    if r_id:
-                        dept_record_ids.setdefault(g_val, []).append(r_id)
+                if not g_val or g_val.lower() in ["none", "null", "n/a", "nan", ""]:
+                    g_val = "Unassigned"
 
-                    if primary_metric_col:
-                        num_val, err = self._clean_number(r.get(primary_metric_col))
-                        if num_val is not None:
-                            dept_sums[g_val] = dept_sums.get(g_val, 0.0) + num_val
-                            dept_values.setdefault(g_val, []).append(num_val)
-                        elif err:
-                            exclusion_reasons_log.append(f"Record {r_id or 'Row'}: {err}")
+                dept_counts[g_val] = dept_counts.get(g_val, 0) + 1
+                r_id = self._extract_record_id(r, pk_col, all_columns) or f"ROW_{len(dept_record_ids.get(g_val, []))+1}"
+                dept_record_ids.setdefault(g_val, []).append(r_id)
 
-                    if sub_col:
-                        sub_val = str(r.get(sub_col) or "Unknown").strip()
-                        dept_sub_breakdown.setdefault(g_val, {}).setdefault(sub_val, 0)
-                        dept_sub_breakdown[g_val][sub_val] += 1
+                # Store full clean record details for traceability (Requirement 6)
+                dept_record_details.setdefault(g_val, []).append({k: v for k, v in r.items() if k != "pages" and v is not None})
+
+                if target_m_col:
+                    num_val, err = self._clean_number(r.get(target_m_col))
+                    if num_val is not None:
+                        dept_sums[g_val] = round(dept_sums.get(g_val, 0.0) + num_val, 2)
+                        dept_values.setdefault(g_val, []).append(num_val)
+                    elif err:
+                        exclusion_reasons_log.append(f"Record {r_id or 'Row'}: {err}")
+
+                if qty_col:
+                    q_val, err = self._clean_number(r.get(qty_col))
+                    if q_val is not None:
+                        dept_qty_sums[g_val] = round(dept_qty_sums.get(g_val, 0.0) + q_val, 2)
+                        dept_qty_values.setdefault(g_val, []).append(q_val)
+
+                if sub_col:
+                    sub_val = str(r.get(sub_col) or "Unknown").strip()
+                    dept_sub_breakdown.setdefault(g_val, {}).setdefault(sub_val, 0)
+                    dept_sub_breakdown[g_val][sub_val] += 1
 
             if dept_counts:
+                dept_avgs = {}
                 if dept_sums:
                     dept_avgs = {g: round(dept_sums[g] / max(1, len(dept_values.get(g, []))), 2) for g in dept_sums}
                     if plan_op == "MIN":
@@ -473,19 +540,76 @@ class StructuredAnalyticsEngine:
                     top_group_sum = max(dept_counts.items(), key=lambda x: x[1])
                     top_group_avg = top_group_sum
 
+                # Group Completeness Validation (Requirement 3)
+                grouped_record_count = sum(dept_counts.values())
+                all_grouped_ids = [rid for ids in dept_record_ids.values() for rid in ids]
+                missing_ids = [rid for rid in all_source_ids if rid not in all_grouped_ids]
+                duplicate_ids = [rid for rid in set(all_grouped_ids) if all_grouped_ids.count(rid) > 1]
+                is_group_complete = (grouped_record_count == total_source_records) and (len(missing_ids) == 0) and (len(duplicate_ids) == 0)
+
+                # Grand Total Independent Calculation & Reconciliation (Requirement 4)
+                indep_sales_list = []
+                indep_qty_list = []
+                for r in eval_recs:
+                    if target_m_col:
+                        nv, _ = self._clean_number(r.get(target_m_col))
+                        if nv is not None: indep_sales_list.append(nv)
+                    if qty_col:
+                        qv, _ = self._clean_number(r.get(qty_col))
+                        if qv is not None: indep_qty_list.append(qv)
+
+                indep_grand_total_sales = round(sum(indep_sales_list), 2) if indep_sales_list else 0.0
+                indep_grand_total_qty = round(sum(indep_qty_list), 2) if indep_qty_list else 0.0
+
+                sum_of_group_sales = round(sum(dept_sums.values()), 2)
+                sum_of_group_qty = round(sum(dept_qty_sums.values()), 2)
+
+                sales_reconciled = (abs(indep_grand_total_sales - sum_of_group_sales) < 0.01)
+                qty_reconciled = (abs(indep_grand_total_qty - sum_of_group_qty) < 0.01)
+
+                # Percentage Contribution Calculations (Requirement 5)
+                dept_sales_pct = {}
+                if indep_grand_total_sales > 0:
+                    for g, s in dept_sums.items():
+                        dept_sales_pct[g] = round((s / indep_grand_total_sales) * 100, 2)
+
+                dept_qty_pct = {}
+                if indep_grand_total_qty > 0:
+                    for g, q in dept_qty_sums.items():
+                        dept_qty_pct[g] = round((q / indep_grand_total_qty) * 100, 2)
+
                 grouped_aggregation_result = {
                     "group_column": group_col_target,
                     "sub_column": sub_col,
-                    "metric_field": primary_metric_col or "Record_Count",
+                    "metric_field": target_m_col or "Record_Count",
+                    "quantity_field": qty_col,
                     "filter_applied": plan_filters,
                     "dept_sums": dept_sums,
+                    "dept_qty_sums": dept_qty_sums,
                     "dept_avgs": dept_avgs,
                     "dept_counts": dept_counts,
                     "dept_record_ids": dept_record_ids,
                     "dept_values": dept_values,
+                    "dept_qty_values": dept_qty_values,
+                    "dept_sales_pct": dept_sales_pct,
+                    "dept_qty_pct": dept_qty_pct,
                     "dept_sub_breakdown": dept_sub_breakdown,
+                    "dept_record_details": dept_record_details,
                     "top_dept_by_sum": top_group_sum,
-                    "top_dept_by_avg": top_group_avg
+                    "top_dept_by_avg": top_group_avg,
+                    "group_validation": {
+                        "total_source_records": total_source_records,
+                        "grouped_record_count": grouped_record_count,
+                        "is_group_complete": is_group_complete,
+                        "missing_ids": missing_ids,
+                        "duplicate_ids": duplicate_ids,
+                        "indep_grand_total_sales": indep_grand_total_sales,
+                        "sum_of_group_sales": sum_of_group_sales,
+                        "sales_reconciled": sales_reconciled,
+                        "indep_grand_total_qty": indep_grand_total_qty,
+                        "sum_of_group_qty": sum_of_group_qty,
+                        "qty_reconciled": qty_reconciled
+                    }
                 }
 
         # 4. Construct Authoritative Factual Statements & Evidence
@@ -502,7 +626,7 @@ class StructuredAnalyticsEngine:
                 r_clean = {k: v for k, v in r.items() if k != "pages" and v is not None}
                 sample_recs_str.append(json.dumps(r_clean))
             if sample_recs_str:
-                summary_lines.append(f"- Grounded Record Samples (First {len(sample_recs_str)} actual rows):\n  " + "\n  ".join(sample_recs_str))
+                summary_lines.append(f"- Source Record Samples:\n  " + "\n  ".join(sample_recs_str))
 
         if employee_ranking_result:
             r_info = employee_ranking_result
@@ -538,45 +662,176 @@ class StructuredAnalyticsEngine:
             top_val_formatted = fmt_val(top_grp_val)
 
             group_summaries = []
-            sorted_groups = sorted(g_info['dept_sums'].items(), key=lambda x: x[1], reverse=(plan_op != "MIN"))
+            sorted_groups = list(dept_counts.keys())
             
-            for d, sum_v in sorted_groups:
+            for d in sorted_groups:
                 g_ids = g_info.get('dept_record_ids', {}).get(d, [])
-                g_vals = g_info.get('dept_values', {}).get(d, [])
-                g_cnt = g_info['dept_counts'].get(d, len(g_vals) or 1)
+                g_cnt = g_info['dept_counts'].get(d, len(g_ids) or 1)
                 
+                s_sum = dept_sales_sums.get(d) if 'dept_sales_sums' in locals() else g_info.get('dept_sums', {}).get(d)
+                q_sum = g_info.get('dept_qty_sums', {}).get(d)
+                
+                sales_str = f"Total Net Amount = ${s_sum:,.2f}" if s_sum is not None else ""
+                qty_str = f"Total Quantity = {int(q_sum) if q_sum is not None and float(q_sum).is_integer() else q_sum}" if q_sum is not None else ""
+                
+                metrics_combined = ", ".join([p for p in [sales_str, qty_str] if p])
                 ids_part = f" [Supporting Record IDs: {', '.join(g_ids)}]" if g_ids else ""
-                vals_part = f" [Individual Row Values: {', '.join(fmt_val(v) for v in g_vals)}]" if g_vals else ""
-                
-                sub_part = ""
-                if g_info.get('sub_column') and d in g_info.get('dept_sub_breakdown', {}):
-                    sub_dict = g_info['dept_sub_breakdown'][d]
-                    sub_part = f" ({g_info['sub_column']} breakdown: {json.dumps(sub_dict)})"
 
-                if primary_metric_col and g_vals:
-                    group_summaries.append(f"'{d}': Total {g_info['metric_field']} = {fmt_val(sum_v)} (across {g_cnt} records){vals_part}{sub_part}{ids_part}")
-                else:
-                    group_summaries.append(f"'{d}': {g_cnt} total records{sub_part}{ids_part}")
+                group_summaries.append(f"'{d}': {metrics_combined} (across {g_cnt} records){ids_part}")
 
             count_str = "; ".join(group_summaries)
             metric_label = g_info['metric_field']
 
-            if primary_metric_col and top_grp_vals:
+            summary_lines.append(
+                f"- Group Aggregation & Multi-Metric Breakdown ({g_info['group_column']}): "
+                f"Complete Group Breakdown: {count_str}."
+            )
+
+        # Compute exact deterministic multi-metric aggregations over eval_filtered (Hard Rule - Deterministic Truth)
+        eval_filtered = filtered_records if filtered_records else unique_records
+
+        # Resolve primary metric fields for sales, quantity, and primary key
+        resolved_sales_col = sales_col or salary_col or primary_metric_col
+        resolved_qty_col = qty_col
+        resolved_pk_col = pk_col
+
+        # 1. Total Orders / Record Count
+        total_orders = len(eval_filtered)
+
+        # 2. Total Quantity Sold (aggregated over ALL matching records without slicing)
+        qty_values = []
+        if resolved_qty_col and eval_filtered:
+            for r in eval_filtered:
+                q_num, _ = self._clean_number(r.get(resolved_qty_col))
+                if q_num is not None:
+                    qty_values.append(q_num)
+        total_quantity = sum(qty_values) if qty_values else None
+        if total_quantity is not None:
+            total_quantity = int(total_quantity) if float(total_quantity).is_integer() else round(total_quantity, 2)
+
+        # 3. Sales / Primary Metric Values & Record Pairing (aggregated over ALL matching records without slicing)
+        sales_records_pairs = []
+        sales_values = []
+        if resolved_sales_col and eval_filtered:
+            for r in eval_filtered:
+                s_num, _ = self._clean_number(r.get(resolved_sales_col))
+                if s_num is not None:
+                    sales_values.append(s_num)
+                    sales_records_pairs.append((r, s_num))
+
+        total_sales = sum(sales_values) if sales_values else None
+        average_order_value = (total_sales / total_orders) if (total_sales is not None and total_orders > 0) else None
+
+        # 4. Highest & Lowest Value Orders with Associated Record Identifiers
+        highest_order = None
+        lowest_order = None
+        if sales_records_pairs:
+            sales_records_pairs.sort(key=lambda x: x[1])
+            lowest_rec, lowest_val = sales_records_pairs[0]
+            highest_rec, highest_val = sales_records_pairs[-1]
+
+            highest_ord_id = self._extract_record_id(highest_rec, resolved_pk_col, all_columns) or str(highest_rec.get("Order_ID") or highest_rec.get("Employee_ID") or highest_rec.get("Department") or "REC_MAX")
+            lowest_ord_id = self._extract_record_id(lowest_rec, resolved_pk_col, all_columns) or str(lowest_rec.get("Order_ID") or lowest_rec.get("Employee_ID") or lowest_rec.get("Department") or "REC_MIN")
+
+            highest_order = {
+                "order_id": highest_ord_id,
+                "value": round(highest_val, 2)
+            }
+            lowest_order = {
+                "order_id": lowest_ord_id,
+                "value": round(lowest_val, 2)
+            }
+
+        structured_calculation_result = {
+            "total_orders": total_orders,
+            "total_quantity": total_quantity,
+            "total_sales": round(total_sales, 2) if total_sales is not None else None,
+            "average_order_value": round(average_order_value, 2) if average_order_value is not None else None,
+            "highest_order": highest_order,
+            "lowest_order": lowest_order
+        }
+
+        calc_count = total_orders
+        calc_sum = total_sales
+        calc_avg = average_order_value
+        calc_min = lowest_order["value"] if lowest_order else None
+        calc_max = highest_order["value"] if highest_order else None
+
+        verified_computation = {
+            "source_file": doc_title,
+            "sheet_name": sheet_name_selected,
+            "filter_applied": plan_filters,
+            "metric_field": resolved_sales_col or primary_metric_col or "Records",
+            "quantity_field": resolved_qty_col,
+            "pk_field": resolved_pk_col,
+            "record_count": total_orders,
+            "total_orders": total_orders,
+            "total_quantity": total_quantity,
+            "total_sales": round(total_sales, 2) if total_sales is not None else None,
+            "sum": round(calc_sum, 2) if calc_sum is not None else None,
+            "average_order_value": round(average_order_value, 2) if average_order_value is not None else None,
+            "average": round(calc_avg, 2) if calc_avg is not None else None,
+            "highest_order": highest_order,
+            "lowest_order": lowest_order,
+            "min": calc_min,
+            "max": calc_max,
+            "operation": plan_op,
+            "source_records": [{k: v for k, v in r.items() if k != "pages" and v is not None} for r in eval_filtered],
+            "structured_calculation_result": structured_calculation_result,
+            "provenance": {
+                "source_file": doc_title,
+                "sheet_name": sheet_name_selected,
+                "matching_row_count": total_orders
+            }
+        }
+
+        is_sales_order_dataset = (total_sales is not None and total_quantity is not None and resolved_qty_col and any(k in resolved_qty_col.lower() for k in ["quantity", "unit", "sold", "volume"]))
+        if is_sales_order_dataset:
+            if is_quantity_focused and employee_ranking_result:
+                r_info = employee_ranking_result
                 summary_lines.append(
-                    f"- Group Aggregation & Multi-Metric Breakdown ({g_info['group_column']}): "
-                    f"Highest Group by Total {metric_label} is '{top_grp_name}' with Total {metric_label} = {top_val_formatted} "
-                    f"(across {len(top_grp_vals)} records){top_ids_str}. "
-                    f"Complete Group Breakdown: {count_str}."
+                    f"- VERIFIED DETERMINISTIC QUANTITY COMPUTATION (Numerical Truth):\n"
+                    f"  * Total Quantity Sold: {total_quantity}\n"
+                    f"  * Highest Quantity Item/Record: Product '{r_info.get('employee_name', 'N/A')}', Order ID '{r_info.get('employee_id', 'N/A')}', Quantity: {r_info.get('formatted_max_value', 'N/A')} units\n"
+                    f"  * Total Number of Orders (Count): {total_orders}"
+                )
+            elif is_price_focused and employee_ranking_result:
+                r_info = employee_ranking_result
+                summary_lines.append(
+                    f"- VERIFIED DETERMINISTIC UNIT PRICE COMPUTATION (Numerical Truth):\n"
+                    f"  * Highest Priced Item/Record: Product '{r_info.get('employee_name', 'N/A')}', Order ID '{r_info.get('employee_id', 'N/A')}', Unit Price: ${r_info.get('max_value', 0):,.2f}\n"
+                    f"  * Total Number of Orders (Count): {total_orders}"
+                )
+            elif is_sales_value_focused:
+                h_str = f"Order ID '{highest_order['order_id']}' (${highest_order['value']:,.2f})" if highest_order else "N/A"
+                l_str = f"Order ID '{lowest_order['order_id']}' (${lowest_order['value']:,.2f})" if lowest_order else "N/A"
+                summary_lines.append(
+                    f"- VERIFIED DETERMINISTIC SALES VALUE COMPUTATION (Numerical Truth):\n"
+                    f"  * Total Sales Revenue / Net Amount: ${total_sales:,.2f}\n"
+                    f"  * Highest-Value Order: {h_str}\n"
+                    f"  * Lowest-Value Order: {l_str}\n"
+                    f"  * Average Order Value: ${average_order_value:,.2f}"
                 )
             else:
+                h_str = f"Order ID '{highest_order['order_id']}' (${highest_order['value']:,.2f})" if highest_order else "N/A"
+                l_str = f"Order ID '{lowest_order['order_id']}' (${lowest_order['value']:,.2f})" if lowest_order else "N/A"
                 summary_lines.append(
-                    f"- Group Aggregation & Multi-Metric Breakdown ({g_info['group_column']}): "
-                    f"Top Group is '{top_grp_name}' with {top_grp_val} records{top_ids_str}. "
-                    f"Complete Group Breakdown: {count_str}."
+                    f"- VERIFIED DETERMINISTIC MULTI-METRIC COMPUTATION (Numerical Truth):\n"
+                    f"  * Total Number of Orders (Count): {total_orders}\n"
+                    f"  * Total Quantity Sold: {total_quantity}\n"
+                    f"  * Total Sales Revenue: ${total_sales:,.2f}\n"
+                    f"  * Average Order Value: ${average_order_value:,.2f}\n"
+                    f"  * Highest-Value Order: {h_str}\n"
+                    f"  * Lowest-Value Order: {l_str}"
                 )
+        elif verified_computation and calc_avg is not None:
+            summary_lines.append(
+                f"- VERIFIED DETERMINISTIC COMPUTATION (Numerical Truth): Record Count (N) = {calc_count}, "
+                f"Sum = ${calc_sum:,.2f}, Verified Average = ${calc_avg:,.2f}, Min = ${calc_min:,.2f}, Max = ${calc_max:,.2f} "
+                f"(Filter: {plan_filters or 'All matching records'})."
+            )
 
         # Filtered Matching Records List (Findings 6 & 9)
-        eval_filtered = filtered_records if filtered_records else unique_records
         if plan_filters or any(k in query_lower for k in ["list", "show", "provide", "all", "each"]):
             match_recs_str = []
             for r in eval_filtered[:10]:
@@ -591,14 +846,32 @@ class StructuredAnalyticsEngine:
         evidence_item = {
             "title": f"Structured Dataset Analysis ({doc_title}{sheet_info})",
             "text": fact_statement,
-            "source": doc_title,
+            "source": f"{doc_title}{sheet_info}" if sheet_name_selected else doc_title,
             "document_id": doc_id,
             "source_type": "CSV" if doc_title.lower().endswith(".csv") else "XLSX",
             "evidence_type": "STRUCTURED_RECORD",
             "category": "Structured_Dataset_Analytics",
             "score": 1.0,
             "confidence": "100.0%",
+            "verified_computation": verified_computation,
             "location_meta": {"sheet": sheet_name_selected, "record_count": len(unique_records), "per_sheet_counts": per_sheet_counts}
+        }
+
+        calculation_trace = {
+            "operation": plan_op,
+            "source_document": doc_title,
+            "sheet_name": sheet_name_selected,
+            "selected_record_count": len(eval_filtered),
+            "excluded_record_count": total_raw_records - len(eval_filtered),
+            "fields_used": {
+                "pk_field": resolved_pk_col,
+                "quantity_field": resolved_qty_col,
+                "sales_field": resolved_sales_col,
+                "primary_metric": primary_metric_col
+            },
+            "filter_conditions": plan_filters,
+            "aggregation_values": structured_calculation_result,
+            "result": "SUCCESS"
         }
 
         forensic_trace = {
@@ -613,6 +886,10 @@ class StructuredAnalyticsEngine:
             "raw_record_count": total_raw_records,
             "duplicate_count": duplicate_count,
             "unique_record_count": len(unique_records),
+            "selected_record_count": len(eval_filtered),
+            "excluded_record_count": total_raw_records - len(eval_filtered),
+            "structured_calculation_result": structured_calculation_result,
+            "calculation_trace": calculation_trace,
             "employee_ranking_result": employee_ranking_result,
             "grouped_aggregation_result": grouped_aggregation_result,
             "exclusion_reasons": exclusion_reasons_log[:10]

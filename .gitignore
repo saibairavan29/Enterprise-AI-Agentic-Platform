@@ -58,6 +58,13 @@ desktop.ini
 *.sln
 *.swp
 
+# Celery & Runtime DBs
+celerybeat-schedule*
+*.bak
+
+# Temporary Test Files
+backend/realtime_ui_test_*.xlsx
+
 # Large datasets / local research datasets
 Datasets/
 datasets/

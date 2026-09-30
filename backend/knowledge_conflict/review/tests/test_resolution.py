@@ -80,15 +80,15 @@ class ResolutionTests(TestCase):
         # Verify resolution DTO result
         self.assertEqual(result.status, "SUCCESS")
         self.assertEqual(result.old_version, 1)
-        self.assertEqual(result.new_version, 2)
-        self.assertEqual(result.document_id, self.doc2.id)
+        self.assertEqual(result.new_version, 1)
+        self.assertEqual(result.document_id, self.doc1.id)
         
-        # Verify KnowledgeDocumentVersion carries linking JSON
-        versions = KnowledgeDocumentVersion.objects.filter(knowledge_document=self.doc2)
+        # Verify KnowledgeDocumentVersion carries linking JSON on source document
+        versions = KnowledgeDocumentVersion.objects.filter(knowledge_document=self.doc1)
         self.assertEqual(versions.count(), 1)
         
         ver_snapshot = versions.first()
-        self.assertEqual(ver_snapshot.version, 2)
+        self.assertEqual(ver_snapshot.version, 1)
         self.assertEqual(ver_snapshot.checksum, f"link-{review.review_id}")
         self.assertEqual(ver_snapshot.change_summary["resolution"], "KEEP_SOURCE")
         self.assertEqual(ver_snapshot.change_summary["review_id"], str(review.review_id))

@@ -5,6 +5,8 @@ import ConflictConsole from './ConflictConsole';
 import DataQualityExplainability from './DataQualityExplainability';
 import EmployeeDirectory from './EmployeeDirectory';
 import UniversalKnowledgeAssistant from './UniversalKnowledgeAssistant';
+import PolicyImpactSimulator from './PolicyImpactSimulator';
+import AdminDashboard from './AdminDashboard';
 
 const getFileIcon = (filename) => {
   if (!filename) return <i className="bi bi-file-earmark text-secondary me-2 fs-5"></i>;
@@ -203,8 +205,8 @@ const Dashboard = () => {
   }, [showUploadModal, pipelineResult?.document_id, pipelineResult?.processing_status]);
 
   // Fetch Explorer Contents
-  const fetchExplorer = async (repoType = selectedRepoType, folderId = currentFolderId) => {
-    setLoadingExplorer(true);
+  const fetchExplorer = async (repoType = selectedRepoType, folderId = currentFolderId, silent = false) => {
+    if (!silent) setLoadingExplorer(true);
     setRepoError('');
     try {
       let url = `repository/explorer/?repository_type=${repoType}`;
@@ -216,9 +218,9 @@ const Dashboard = () => {
         setExplorerData(res.data.data);
       }
     } catch (err) {
-      setRepoError('Failed to load repository folder explorer.');
+      if (!silent) setRepoError('Failed to load repository folder explorer.');
     } finally {
-      setLoadingExplorer(false);
+      if (!silent) setLoadingExplorer(false);
     }
   };
 
@@ -228,6 +230,61 @@ const Dashboard = () => {
       fetchExplorer(selectedRepoType, currentFolderId);
     }
   }, [activeTab, selectedRepoType, currentFolderId]);
+
+  // Refs to avoid stale closures in background timer effect
+  const repoTypeRef = useRef(selectedRepoType);
+  const currentFolderIdRef = useRef(currentFolderId);
+  const activeTabRef = useRef(activeTab);
+  const lastStatusRef = useRef(null);
+  const isPollingCheckRef = useRef(false);
+
+  useEffect(() => {
+    repoTypeRef.current = selectedRepoType;
+    currentFolderIdRef.current = currentFolderId;
+    activeTabRef.current = activeTab;
+  }, [selectedRepoType, currentFolderId, activeTab]);
+
+  // Background change monitoring (10s polling interval) for auto-updating UI without manual refresh
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (isPollingCheckRef.current) return;
+      isPollingCheckRef.current = true;
+
+      try {
+        const res = await client.get('repository/latest-status/');
+        if (res.data && res.data.success && res.data.data) {
+          const currentSnapshot = res.data.data;
+          const prev = lastStatusRef.current;
+
+          if (prev !== null) {
+            const hasDocChanged = currentSnapshot.last_updated !== prev.last_updated || 
+                                  currentSnapshot.document_count !== prev.document_count ||
+                                  currentSnapshot.latest_document_id !== prev.latest_document_id;
+            const hasEmailChanged = currentSnapshot.latest_email_time !== prev.latest_email_time;
+
+            if (hasDocChanged || hasEmailChanged) {
+              // Silently refresh current folder explorer view if user is on repository tab
+              if (activeTabRef.current === 'repository') {
+                fetchExplorer(repoTypeRef.current, currentFolderIdRef.current, true);
+              }
+            }
+          }
+          lastStatusRef.current = currentSnapshot;
+        }
+      } catch (err) {
+        // Silently ignore background polling errors
+      } finally {
+        isPollingCheckRef.current = false;
+      }
+    };
+
+    checkStatus();
+    const intervalId = setInterval(checkStatus, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   // Handle repository switch (Team vs Personal)
   const handleSwitchRepoType = (newType) => {
@@ -490,43 +547,105 @@ const Dashboard = () => {
       setProcessing(true);
       const total = folderFiles.length;
       let completed = 0;
+      let failedCount = 0;
+      const failedFiles = [];
       const batchDocIds = [];
 
       for (let i = 0; i < total; i++) {
         const f = folderFiles[i];
         setUploadProgress(`Uploading item ${i + 1} of ${total}: ${f.name}...`);
         
+        const relPath = f.webkitRelativePath || f.name;
         const formData = new FormData();
         formData.append('file', f);
         formData.append('repository_type', selectedRepoType);
         if (effectiveFolderId) formData.append('folder_id', effectiveFolderId);
         if (effectivePath) formData.append('target_logical_path', effectivePath);
-        if (f.webkitRelativePath) formData.append('relative_path', f.webkitRelativePath);
+        if (relPath) formData.append('relative_path', relPath);
         if (parserType !== 'auto') formData.append('parser_type', parserType);
 
-        try {
-          const res = await client.post('ingestion/upload/', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-          if (res.data && res.data.success && res.data.data?.document_id) {
-            batchDocIds.push(res.data.data.document_id);
+        let success = false;
+        const maxRetries = 3;
+
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+          try {
+            const res = await client.post('ingestion/upload/', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            if (res.data && res.data.success) {
+              if (res.data.data?.document_id) {
+                batchDocIds.push(res.data.data.document_id);
+              }
+              success = true;
+              completed++;
+              break;
+            }
+          } catch (err) {
+            console.warn(`Attempt ${attempt + 1} failed for ${f.name}:`, err);
+            if (attempt < maxRetries - 1) {
+              await new Promise(r => setTimeout(r, 250));
+            }
           }
-        } catch (err) {
-          console.error(`Folder item ${f.name} upload failed:`, err);
         }
-        completed++;
-        await new Promise(r => setTimeout(r, 100));
+
+        if (!success) {
+          failedCount++;
+          failedFiles.push(f.name);
+          console.error(`Folder item ${f.name} failed all ${maxRetries} upload attempts.`);
+        }
+        await new Promise(r => setTimeout(r, 50));
       }
 
       setProcessing(false);
       setShowUploadModal(false);
-      showToast(`Uploaded ${completed} items from folder. Ingestion running in background.`);
+      if (failedCount === 0) {
+        showToast(`Successfully uploaded all ${completed} items from folder. Ingestion running in background.`);
+      } else {
+        showToast(`Uploaded ${completed} items, but ${failedCount} files failed. See console for details.`, 'warning');
+      }
+
       if (targetFolderId !== null && targetFolderId !== currentFolderId) {
         setCurrentFolderId(targetFolderId);
       } else {
         fetchExplorer();
       }
     }
+  };
+
+  // Helper to recursively traverse dropped folder trees
+  const traverseFileTree = (item, path = '') => {
+    return new Promise((resolve) => {
+      if (item.isFile) {
+        item.file((file) => {
+          try {
+            Object.defineProperty(file, 'webkitRelativePath', {
+              value: path + file.name,
+              writable: false
+            });
+          } catch (e) {
+            // Ignore if property cannot be redefined
+          }
+          resolve([file]);
+        });
+      } else if (item.isDirectory) {
+        const dirReader = item.createReader();
+        let entries = [];
+        const readEntries = () => {
+          dirReader.readEntries((results) => {
+            if (!results.length) {
+              Promise.all(entries.map((entry) => traverseFileTree(entry, `${path}${item.name}/`)))
+                .then((nested) => resolve(nested.flat()));
+            } else {
+              entries = entries.concat(Array.from(results));
+              readEntries();
+            }
+          });
+        };
+        readEntries();
+      } else {
+        resolve([]);
+      }
+    });
   };
 
   // Drag and drop handlers
@@ -537,14 +656,48 @@ const Dashboard = () => {
     else if (e.type === "dragleave") setDragActive(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    
+    const items = e.dataTransfer.items;
+    if (items && items.length > 0) {
+      const entryPromises = [];
+      let containsFolder = false;
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+        if (entry) {
+          if (entry.isDirectory) containsFolder = true;
+          entryPromises.push(traverseFileTree(entry));
+        }
+      }
+      if (entryPromises.length > 0) {
+        const nestedFiles = await Promise.all(entryPromises);
+        const flatFiles = nestedFiles.flat();
+        if (flatFiles.length > 0) {
+          if (containsFolder || flatFiles.length > 1) {
+            setFolderFiles(flatFiles);
+            setUploadMode('folder');
+            setPipelineError('');
+            setShowUploadModal(true);
+            return;
+          } else {
+            setSelectedFile(flatFiles[0]);
+            setUploadMode('file');
+            setPipelineError('');
+            setShowUploadModal(true);
+            return;
+          }
+        }
+      }
+    }
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setSelectedFile(e.dataTransfer.files[0]);
       setUploadMode('file');
       setPipelineError('');
+      setShowUploadModal(true);
     }
   };
 
@@ -698,6 +851,12 @@ const Dashboard = () => {
             </span>
             <div className="navbar-nav d-flex flex-row gap-2">
               <button 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'dashboard' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
+                onClick={() => setActiveTab('dashboard')}
+              >
+                <i className="bi bi-house-door-fill text-success me-1"></i> Dashboard
+              </button>
+              <button 
                 className={`btn btn-sm px-3 fw-bold ${activeTab === 'repository' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
                 onClick={() => setActiveTab('repository')}
               >
@@ -727,6 +886,12 @@ const Dashboard = () => {
               >
                 <i className="bi bi-robot text-primary me-1"></i> Phase 5 Knowledge Assistant
               </button>
+              <button 
+                className={`btn btn-sm px-3 fw-bold ${activeTab === 'policy-simulator' ? 'btn-premium-primary text-white' : 'btn-link text-dark text-decoration-none opacity-75'}`} 
+                onClick={() => setActiveTab('policy-simulator')}
+              >
+                <i className="bi bi-sliders text-info me-1"></i> Policy Simulator
+              </button>
             </div>
           </div>
           <div className="d-flex align-items-center gap-3">
@@ -740,118 +905,11 @@ const Dashboard = () => {
       </nav>
 
       {/* Main Container */}
-      <div className="container py-4 px-3">
+      <div className="container-fluid py-4 px-4" style={{ maxWidth: '1600px' }}>
         
         {/* DASHBOARD HOME VIEW */}
         {activeTab === 'dashboard' && (
-          <>
-            <div className="mb-5 text-center text-md-start">
-              <h2 className="text-success fw-bold mb-2">Decision Intelligence Console</h2>
-              <p className="text-dark opacity-75 fw-medium">Enterprise-grade platform shell ready for trusted business metrics. Manage files, query knowledge, and audit records below.</p>
-            </div>
-
-            <div className="row g-4">
-              {/* Enterprise Data Repository Card */}
-              <div className="col-12 col-md-6 col-lg-4">
-                <div 
-                  className="glass-card p-4 h-100 d-flex flex-column justify-content-between cursor-pointer border border-success border-opacity-50"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setActiveTab('repository')}
-                >
-                  <div>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-success mb-0">Enterprise Data Repository</h5>
-                      <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>UNIFIED</span>
-                    </div>
-                    <p className="text-dark opacity-75 small">Unified file explorer, logical path manager (`Team/Projects/...`), single & folder uploading, real-time ingestion status monitor, and soft-delete recycle bin.</p>
-                  </div>
-                  <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-success fw-bold small">Launch Repository Workspace →</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Employee Directory Card */}
-              <div className="col-12 col-md-6 col-lg-4">
-                <div 
-                  className="glass-card p-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setActiveTab('employees')}
-                >
-                  <div>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-dark mb-0">Employee Directory</h5>
-                      <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>ACTIVE</span>
-                    </div>
-                    <p className="text-dark opacity-75 small">Access searchable directory of team members, roles, current projects, and domain expert skills.</p>
-                  </div>
-                  <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-primary fw-bold small">Launch Employee Directory →</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Check Data Conflicts Card */}
-              <div className="col-12 col-md-6 col-lg-4">
-                <div 
-                  className="glass-card p-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setActiveTab('conflicts')}
-                >
-                  <div>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-dark mb-0">Check Data Conflicts</h5>
-                      <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>ACTIVE</span>
-                    </div>
-                    <p className="text-dark opacity-75 small">Analyzes semantic consistency to detect contradictory, duplicate, and outdated knowledge.</p>
-                  </div>
-                  <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-primary fw-bold small">Launch Conflict Workspace →</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Data Quality Report Card */}
-              <div className="col-12 col-md-6 col-lg-4">
-                <div 
-                  className="glass-card p-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setActiveTab('explainability')}
-                >
-                  <div>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-dark mb-0">Data Quality Report</h5>
-                      <span className="badge bg-success font-monospace" style={{ fontSize: '0.7rem' }}>ACTIVE</span>
-                    </div>
-                    <p className="text-dark opacity-75 small">Evaluates data quality using ML classification and generates SHAP explainability attributions with recommendations.</p>
-                  </div>
-                  <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-primary fw-bold small">Launch Quality & XAI Workspace →</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Universal Knowledge Assistant Card */}
-              <div className="col-12 col-md-6 col-lg-4">
-                <div 
-                  className="glass-card p-4 h-100 d-flex flex-column justify-content-between cursor-pointer border border-primary border-opacity-50"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setActiveTab('knowledge-assistant')}
-                >
-                  <div>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h5 className="fw-bold text-primary mb-0"><i className="bi bi-robot me-1"></i> Knowledge Assistant</h5>
-                      <span className="badge bg-primary font-monospace text-white" style={{ fontSize: '0.7rem' }}>PHASE 5</span>
-                    </div>
-                    <p className="text-dark opacity-75 small">RAG-grounded natural language question-answering with local LLMs, FAISS vector index, and logical file/folder path resolution.</p>
-                  </div>
-                  <div className="border-top border-secondary pt-3 mt-3 d-flex justify-content-between align-items-center">
-                    <span className="text-primary fw-bold small">Launch Knowledge Assistant →</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
+          <AdminDashboard onNavigate={(tab) => setActiveTab(tab)} />
         )}
 
         {/* ENTERPRISE DATA REPOSITORY VIEW (PHASE 1 + PHASE 2 UNIFIED) */}
@@ -1715,6 +1773,22 @@ const Dashboard = () => {
             </div>
             <div className="glass-panel p-2 bg-white rounded-3 border">
               <UniversalKnowledgeAssistant />
+            </div>
+          </>
+        )}
+
+        {activeTab === 'policy-simulator' && (
+          <>
+            <div className="mb-4 d-flex align-items-center gap-3">
+              <button onClick={() => setActiveTab('dashboard')} className="btn btn-premium-secondary py-1 px-3 fs-6">
+                ← Back
+              </button>
+              <div>
+                <h3 className="text-gradient fw-bold mb-0">Employee Workforce Policy Impact Simulator</h3>
+              </div>
+            </div>
+            <div className="glass-panel p-2 bg-white rounded-3 border">
+              <PolicyImpactSimulator />
             </div>
           </>
         )}

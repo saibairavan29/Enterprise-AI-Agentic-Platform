@@ -1,0 +1,84 @@
+{
+  "project": "Employee Workforce Policy Impact Simulator",
+  "data_sources": {
+    "primary_training_dataset": "E:\\project final year\\Dataset Final\\Datasets\\HR\\IBM_HR_Analytics\\IBM HR.csv",
+    "additional_context_dataset": "E:\\project final year\\Dataset Final\\Datasets\\HR\\Human_Resources_Data_Set\\HR Dataset rheubner.csv",
+    "training_restriction": "IBM HR.csv is the ONLY dataset to be used for model training. Datasets MUST NOT be merged."
+  },
+  "dataset_metadata": {
+    "raw_row_count": 1470,
+    "raw_column_count": 35,
+    "target_column": "Attrition",
+    "target_encoding": {
+      "No": 0,
+      "Yes": 1
+    },
+    "target_distribution": {
+      "0": 1233,
+      "1": 237,
+      "ratio_1": 0.161224
+    }
+  },
+  "feature_inventory": {
+    "target": ["Attrition"],
+    "excluded_constant_features": {
+      "EmployeeCount": "Constant value 1 across all records; provides zero variance.",
+      "Over18": "Constant value 'Y' across all records; provides zero variance.",
+      "StandardHours": "Constant value 80 across all records; provides zero variance."
+    },
+    "excluded_identifier_features": {
+      "EmployeeNumber": "Arbitrary record identifier key; risk of data leakage and target memorization."
+    },
+    "retained_predictive_features": {
+      "categorical": [
+        "BusinessTravel",
+        "Department",
+        "EducationField",
+        "Gender",
+        "JobRole",
+        "MaritalStatus",
+        "OverTime"
+      ],
+      "numerical": [
+        "Age",
+        "DailyRate",
+        "DistanceFromHome",
+        "Education",
+        "EnvironmentSatisfaction",
+        "HourlyRate",
+        "JobInvolvement",
+        "JobLevel",
+        "JobSatisfaction",
+        "MonthlyIncome",
+        "MonthlyRate",
+        "NumCompaniesWorked",
+        "PercentSalaryHike",
+        "PerformanceRating",
+        "RelationshipSatisfaction",
+        "StockOptionLevel",
+        "TotalWorkingYears",
+        "TrainingTimesLastYear",
+        "WorkLifeBalance",
+        "YearsAtCompany",
+        "YearsInCurrentRole",
+        "YearsSinceLastPromotion",
+        "YearsWithCurrManager"
+      ]
+    }
+  },
+  "preprocessing": {
+    "test_size": 0.20,
+    "random_state": 42,
+    "stratify": true,
+    "scaling": "StandardScaler",
+    "encoding": "OneHotEncoder(handle_unknown='ignore', sparse_output=False)"
+  },
+  "modeling_specification": {
+    "model_family": "RandomForestClassifier",
+    "single_model_policy": true,
+    "n_estimators": 200,
+    "max_depth": 12,
+    "random_state": 42,
+    "class_weight": "balanced_subsample"
+  }
+}

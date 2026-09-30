@@ -7,34 +7,50 @@ from ..preprocessors.segmenter import RegexSegmenter
 
 def should_pair_records(rec1, rec2) -> bool:
     if not rec1 or not rec2:
-        return True
+        return False
     if rec1.id == rec2.id:
         return False
         
     data1 = rec1.canonical_data or {}
     data2 = rec2.canonical_data or {}
     
-    # Check for primary identifiers in common keys
-    common_keys = set(data1.keys()).intersection(set(data2.keys()))
-    id_fields = ["employee_id", "id", "uuid", "email", "code", "number"]
+    # Filter out keys with empty/None values
+    valid_keys1 = {k for k, v in data1.items() if v is not None and str(v).strip().lower() not in ['', 'none', 'null', 'n/a']}
+    valid_keys2 = {k for k, v in data2.items() if v is not None and str(v).strip().lower() not in ['', 'none', 'null', 'n/a']}
     
-    found_id_key = None
-    for field in id_fields:
-        for k in common_keys:
-            if k.lower() == field.lower():
-                found_id_key = k
-                break
-        if found_id_key:
-            break
+    common_keys = valid_keys1.intersection(valid_keys2)
+    if not common_keys:
+        return False
+        
+    # Resolve any primary identifier key (employee_id, emp_id, client_id, email, code, invoice_id, etc.)
+    found_id_keys = []
+    found_name_keys = []
+    for k in common_keys:
+        k_clean = k.lower().replace('_', '').replace('-', '')
+        if any(term in k_clean for term in ['id', 'code', 'email', 'mail', 'number']):
+            found_id_keys.append(k)
+        elif any(term in k_clean for term in ['name', 'title', 'client', 'employee']):
+            found_name_keys.append(k)
+
+    if found_id_keys:
+        for id_k in found_id_keys:
+            val1 = str(data1.get(id_k, "")).strip().lower()
+            val2 = str(data2.get(id_k, "")).strip().lower()
+            if val1 and val2 and val1 not in ['none', 'null', 'n/a', ''] and val2 not in ['none', 'null', 'n/a']:
+                if val1 != val2:
+                    return False
+        return True
+
+    if found_name_keys:
+        for name_k in found_name_keys:
+            val1 = str(data1.get(name_k, "")).strip().lower()
+            val2 = str(data2.get(name_k, "")).strip().lower()
+            if val1 and val2 and val1 not in ['none', 'null', 'n/a', ''] and val2 not in ['none', 'null', 'n/a']:
+                if val1 != val2 and val1 not in val2 and val2 not in val1:
+                    return False
+        return True
             
-    if found_id_key:
-        val1 = str(data1.get(found_id_key, "")).strip().lower()
-        val2 = str(data2.get(found_id_key, "")).strip().lower()
-        # If both values are non-empty, they MUST match
-        if val1 and val2:
-            return val1 == val2
-            
-    return True
+    return len(common_keys) >= 3
 
 def get_record_by_id(rec_id, records_db):
     try:
@@ -391,17 +407,30 @@ class UniversalCrossCheckStrategy(BasePairingStrategy):
                 segs2 = docs_by_id[id2][:5]
                 
                 for s1 in segs1:
+                    # Ignore short boilerplate segments (< 35 chars)
+                    if len(s1["text"].strip()) < 35:
+                        continue
                     tokens1 = set(TextNormalizer.extract_key_tokens(s1["text"]))
+                    
                     for s2 in segs2:
+                        if len(s2["text"].strip()) < 35:
+                            continue
+                            
+                        # Ignore identical short boilerplate strings (e.g. company headers, addresses)
+                        clean_s1 = s1["text"].strip().rstrip('.,;:!? ').lower()
+                        clean_s2 = s2["text"].strip().rstrip('.,;:!? ').lower()
+                        if clean_s1 == clean_s2 and len(clean_s1) < 120:
+                            continue
+
                         tokens2 = set(TextNormalizer.extract_key_tokens(s2["text"]))
                         
                         # Calculate non-stopword token overlap
                         common_tokens = tokens1.intersection(tokens2)
                         overlap_ratio = len(common_tokens) / float(max(1, min(len(tokens1), len(tokens2)))) if (tokens1 and tokens2) else 0.0
                         
-                        # Pair segments if they share key non-stopword content tokens or for cross-file baseline comparison
-                        if common_tokens or overlap_ratio >= 0.10 or len(doc_ids) >= 2:
-                            reason = f"Shared key tokens ({len(common_tokens)}): {', '.join(list(common_tokens)[:4])}" if common_tokens else "Cross-File Content Comparison"
+                        # Pair segments if they share meaningful key content tokens
+                        if overlap_ratio >= 0.25 and len(common_tokens) >= 2:
+                            reason = f"Shared key tokens ({len(common_tokens)}): {', '.join(list(common_tokens)[:4])}"
                             pairs.append({
                                 "source_document_id": id1,
                                 "target_document_id": id2,

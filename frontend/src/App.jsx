@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import UniversalKnowledgeAssistant from './pages/UniversalKnowledgeAssistant';
+import PolicyImpactSimulator from './pages/PolicyImpactSimulator';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -62,6 +63,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <UniversalKnowledgeAssistant />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/policy-simulator" 
+            element={
+              <ProtectedRoute>
+                <PolicyImpactSimulator />
               </ProtectedRoute>
             } 
           />

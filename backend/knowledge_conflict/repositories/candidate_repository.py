@@ -47,9 +47,13 @@ class CandidateRepository:
                 KnowledgeCandidate.objects.filter(candidate_hash__in=chunk).values_list('candidate_hash', flat=True)
             )
         
+        # Update existing candidates back to GENERATED status for re-assessment
+        if existing_hashes:
+            KnowledgeCandidate.objects.filter(candidate_hash__in=existing_hashes).update(status='GENERATED')
+        
         filtered_list = [c for c in candidates_list if c.candidate_hash not in existing_hashes]
         if not filtered_list:
-            return []
+            return list(KnowledgeCandidate.objects.filter(candidate_hash__in=existing_hashes))
             
         return KnowledgeCandidate.objects.bulk_create(filtered_list, batch_size=batch_size)
 

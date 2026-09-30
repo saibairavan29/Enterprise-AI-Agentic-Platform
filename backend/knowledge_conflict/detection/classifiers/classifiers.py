@@ -30,7 +30,7 @@ class DuplicateClassifier(BaseClassifier):
     Classifies highly similar texts as DUPLICATE.
     """
     def classify(self, candidate, similarity_report: dict, evidence: dict) -> dict:
-        threshold = self.config.get("similarity_threshold_duplicate", 0.95)
+        threshold = self.config.get("similarity_threshold_duplicate", 0.85)
         sim = similarity_report.get("overall_similarity", 0.0)
         
         has_contradiction = len(evidence.get("contradiction_terms", [])) > 0
@@ -62,15 +62,20 @@ class ConflictClassifier(BaseClassifier):
     Identifies semantic contradictions or numerical mismatches in records.
     """
     def classify(self, candidate, similarity_report: dict, evidence: dict) -> dict:
-        threshold = self.config.get("similarity_threshold_consistent", 0.70)
+        threshold = self.config.get("similarity_threshold_conflict", 0.25)
         sim = similarity_report.get("overall_similarity", 0.0)
         
-        # Check if similarity is high, but we have contradiction terms or value/property differences
+        # Check if we have contradiction terms or value/property differences
         has_contradiction = len(evidence.get("contradiction_terms", [])) > 0
         has_numeric_diff = evidence.get("numeric_difference", 0.0) > 0.0
         prop_diffs = evidence.get("property_differences", [])
+        has_structured_diff = any(d != "Document Content" for d in prop_diffs)
         has_prop_diff = len(prop_diffs) > 0
         
+        # If the only difference is raw text string comparison without structured property matches, require sim >= 0.55
+        if not has_structured_diff and "Document Content" in prop_diffs and sim < 0.55 and candidate.strategy_used not in ["SameVersionStrategy", "SameTitleStrategy"]:
+            return None
+
         if sim >= threshold and (has_contradiction or has_numeric_diff or has_prop_diff):
             severity = "HIGH"
             explanation = "Semantic text contradictions identified."
@@ -123,7 +128,7 @@ class ConsistencyClassifier(BaseClassifier):
     Classifies similar, non-contradictory texts as CONSISTENT.
     """
     def classify(self, candidate, similarity_report: dict, evidence: dict) -> dict:
-        threshold = self.config.get("similarity_threshold_consistent", 0.70)
+        threshold = self.config.get("similarity_threshold_consistent", 0.50)
         sim = similarity_report.get("overall_similarity", 0.0)
         
         # If similar but has no version gap, no contradiction terms, no property diffs, and no numeric diff

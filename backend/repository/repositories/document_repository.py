@@ -35,8 +35,8 @@ class DocumentRepository:
             repository_status='ACTIVE'
         ).filter(
             Q(folder__isnull=True) | Q(folder__is_deleted=False)
-        ).exclude(
-            source_document__status__in=['deleted', 'DELETED', 'archived', 'FAILED']
+        ).filter(
+            Q(source_document__isnull=True) | ~Q(source_document__processing_status__in=['deleted', 'DELETED', 'archived', 'FAILED'])
         )
 
     def create(self, **fields):

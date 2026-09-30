@@ -41,7 +41,9 @@ def validate_mime_type(file, extension):
         'jpg': b'\xff\xd8\xff',
         'jpeg': b'\xff\xd8\xff',
         'xlsx': b'PK\x03\x04',
+        'docx': b'PK\x03\x04',
         'xls': b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1',
+        'doc': b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1',
     }
     
     if ext == 'pdf':
@@ -53,12 +55,12 @@ def validate_mime_type(file, extension):
     elif ext in ['jpg', 'jpeg']:
         if not header.startswith(signatures['jpeg'][:2]):
             raise ValidationError("File signature mismatch. The file is not a valid JPEG image.")
-    elif ext == 'xlsx':
+    elif ext in ['xlsx', 'docx']:
         if not header.startswith(signatures['xlsx']):
-            raise ValidationError("File signature mismatch. The file is not a valid Excel (.xlsx) file.")
-    elif ext == 'xls':
+            raise ValidationError(f"File signature mismatch. The file is not a valid {ext.upper()} file.")
+    elif ext in ['xls', 'doc']:
         if not header.startswith(signatures['xls']):
-            raise ValidationError("File signature mismatch. The file is not a valid Excel (.xls) file.")
+            raise ValidationError(f"File signature mismatch. The file is not a valid {ext.upper()} file.")
     elif ext in ['csv', 'txt', 'json']:
         try:
             # Check decodability for text-based extensions

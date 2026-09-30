@@ -61,9 +61,12 @@ def main():
 
     # 1. Cleanup old records to have clean statistics
     print("[1/8] Cleaning up existing records for fresh run...")
-    Document.objects.all().delete()
-    KnowledgeDocument.objects.all().delete()
+    from knowledge_conflict.models import KnowledgeCandidate, KnowledgeConflict
+    KnowledgeConflict.objects.all().delete()
+    KnowledgeCandidate.objects.all().delete()
     KnowledgeRecord.objects.all().delete()
+    KnowledgeDocument.objects.all().delete()
+    Document.objects.all().delete()
     EnterpriseDatasetProfile.objects.all().delete()
     EnterpriseQualityMetrics.objects.all().delete()
     EnterpriseDataQualityReport.objects.all().delete()

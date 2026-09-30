@@ -37,6 +37,9 @@ def get_active_conflicts():
     return KnowledgeConflict.objects.filter(
         source_document__repository_status='ACTIVE',
         target_document__repository_status='ACTIVE'
+    ).filter(
+        Q(conflict_type__in=['CONFLICTING', 'DUPLICATE', 'OUTDATED', 'CONSISTENT']) |
+        Q(overall_similarity__gte=0.50)
     ).exclude(
         source_document=F('target_document')
     ).filter(
@@ -47,6 +50,14 @@ def get_active_conflicts():
         source_document__source_document__status__in=['deleted', 'DELETED']
     ).exclude(
         target_document__source_document__status__in=['deleted', 'DELETED']
+    ).exclude(
+        Q(source_document__metadata__repository_type='personal') |
+        Q(source_document__folder__repository_type='personal') |
+        Q(source_document__logical_path__istartswith='personal/')
+    ).exclude(
+        Q(target_document__metadata__repository_type='personal') |
+        Q(target_document__folder__repository_type='personal') |
+        Q(target_document__logical_path__istartswith='personal/')
     )
 
 
@@ -111,18 +122,36 @@ class ConflictsListView(ConflictsBaseView):
 class ConflictsStatisticsView(ConflictsBaseView):
     """
     GET: Compiles summary statistical metrics for the active repository dashboard.
+    Calculates metrics grouped by distinct document pairs to present clean file-level statistics.
     """
     def get(self, request):
         conflicts = get_active_conflicts()
-        total_count = conflicts.count()
-        pending = conflicts.filter(status__in=['NEW', 'PROCESSING', 'REVIEW_PENDING']).count()
-        critical = conflicts.filter(severity='CRITICAL').count()
-        verified = conflicts.filter(status='VERIFIED').count()
         
-        # Calculate average similarity score across active conflicts
+        pairs = set()
+        pending_pairs = set()
+        critical_pairs = set()
+        resolved_pairs = set()
+        sim_scores = []
+
+        for c in conflicts.values('source_document_id', 'target_document_id', 'status', 'severity', 'overall_similarity'):
+            pair = tuple(sorted([c['source_document_id'], c['target_document_id']]))
+            pairs.add(pair)
+            if c['status'] in ['NEW', 'PROCESSING', 'REVIEW_PENDING']:
+                pending_pairs.add(pair)
+            if c['severity'] == 'CRITICAL':
+                critical_pairs.add(pair)
+            if c['status'] == 'VERIFIED':
+                resolved_pairs.add(pair)
+            sim_scores.append(c['overall_similarity'])
+
+        total_count = len(pairs)
+        pending = len(pending_pairs)
+        critical = len(critical_pairs)
+        verified = len(resolved_pairs)
+        
         avg_sim = 0.0
-        if total_count > 0:
-            avg_sim = sum(c.overall_similarity for c in conflicts) / total_count
+        if sim_scores:
+            avg_sim = sum(sim_scores) / len(sim_scores)
             
         return Response({
             "success": True,
@@ -132,7 +161,8 @@ class ConflictsStatisticsView(ConflictsBaseView):
                 "critical_conflicts": critical,
                 "resolved_conflicts": verified,
                 "average_similarity": round(avg_sim, 4),
-                "average_confidence": 0.89
+                "average_confidence": 0.89,
+                "total_segment_conflicts": len(sim_scores)
             },
             "message": "Fetched conflict stats successfully."
         })

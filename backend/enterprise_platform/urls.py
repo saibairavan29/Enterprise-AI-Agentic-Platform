@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/v1/knowledge-assistant/', include('knowledge_assistant.urls')),
     path('api/v1/health/', HealthCheckView.as_view(), name='health_check'),
     path('api/v1/', include('edqi.explainability.urls')),
+    path('api/v1/policy-simulator/', include('policy_simulator.urls')),
 
     
     # Swagger Documentation Routes

@@ -55,30 +55,40 @@ class FolderService:
             folder_name = part.strip()
             current_path_acc = f"{current_path_acc}/{folder_name}"
 
-            with transaction.atomic():
-                folder = RepositoryFolder.objects.filter(
-                    repository_type=repo_type,
-                    logical_path__iexact=current_path_acc
-                ).first()
-                if not folder:
-                    folder = RepositoryFolder.objects.create(
+            folder = RepositoryFolder.objects.filter(
+                repository_type=repo_type,
+                logical_path__iexact=current_path_acc
+            ).first()
+
+            if not folder:
+                try:
+                    with transaction.atomic():
+                        folder = RepositoryFolder.objects.create(
+                            repository_type=repo_type,
+                            parent=current_parent,
+                            name=folder_name,
+                            logical_path=current_path_acc,
+                            owner=owner if repo_type == 'personal' else None,
+                            is_deleted=False
+                        )
+                except Exception:
+                    folder = RepositoryFolder.objects.filter(
                         repository_type=repo_type,
-                        parent=current_parent,
-                        name=folder_name,
-                        logical_path=current_path_acc,
-                        owner=owner if repo_type == 'personal' else None,
-                        is_deleted=False
-                    )
-                else:
-                    changed = False
-                    if folder.parent != current_parent:
-                        folder.parent = current_parent
-                        changed = True
-                    if folder.is_deleted:
-                        folder.is_deleted = False
-                        changed = True
-                    if changed:
-                        folder.save()
+                        logical_path__iexact=current_path_acc
+                    ).first()
+
+            if folder:
+                changed = False
+                expected_parent_id = current_parent.id if current_parent else None
+                if folder.parent_id != expected_parent_id:
+                    folder.parent = current_parent
+                    changed = True
+                if folder.is_deleted:
+                    folder.is_deleted = False
+                    changed = True
+                if changed:
+                    folder.save()
+
             current_parent = folder
 
         return current_parent

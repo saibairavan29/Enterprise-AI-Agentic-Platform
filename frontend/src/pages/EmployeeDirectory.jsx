@@ -73,54 +73,50 @@ const EmployeeDirectory = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  const deriveSchemaFromRecords = (records) => {
-    if (!records || records.length === 0) return;
-    const keySet = [];
-    const seenLower = new Set();
-
-    records.forEach(r => {
-      const data = r.canonical_data || r.employee_details || r;
-      if (data && typeof data === 'object') {
-        Object.keys(data).forEach(k => {
-          const kClean = String(k).trim();
-          const kLower = kClean.toLowerCase().replace(/_/g, '');
-          if (!['id', 'knowledge_document', 'created_at', 'updated_at', 'employee_details', 'canonical_data'].includes(kClean)) {
-            if (!seenLower.has(kLower)) {
-              seenLower.add(kLower);
-              keySet.push(kClean);
-            }
-          }
-        });
-      }
-    });
-
-    if (keySet.length === 0) return;
-
-    const cols = keySet.map(key => {
-      let type = 'text';
-      const sampleRec = records.find(r => {
-        const d = r.canonical_data || r.employee_details || r;
-        if (!d) return false;
-        return d[key] !== undefined && d[key] !== null;
+  const deriveSchemaFromRecords = (records, existingSchema = []) => {
+    if ((!records || records.length === 0) && (!existingSchema || existingSchema.length === 0)) return;
+    
+    const keyMap = new Map();
+    if (Array.isArray(existingSchema)) {
+      existingSchema.forEach(s => {
+        if (s && s.key) {
+          keyMap.set(s.key, s);
+        }
       });
-      const dObj = sampleRec ? (sampleRec.canonical_data || sampleRec.employee_details || sampleRec) : null;
-      const sampleVal = dObj ? dObj[key] : null;
+    }
 
-      const kLower = key.toLowerCase();
-      if (typeof sampleVal === 'number' || kLower.includes('salary') || kLower.includes('exp') || kLower.includes('years') || kLower.includes('count') || kLower.includes('age') || kLower.includes('pay')) {
-        type = 'number';
-      } else if (kLower.includes('date')) {
-        type = 'date';
-      }
+    if (records && records.length > 0) {
+      records.forEach(r => {
+        const data = r.canonical_data || r.employee_details || r;
+        if (data && typeof data === 'object') {
+          Object.keys(data).forEach(k => {
+            const kClean = String(k).trim();
+            if (!['id', 'knowledge_document', 'created_at', 'updated_at', 'employee_details', 'canonical_data'].includes(kClean)) {
+              if (!keyMap.has(kClean)) {
+                let type = 'text';
+                const sampleVal = data[kClean];
+                const kLower = kClean.toLowerCase();
+                if (typeof sampleVal === 'number' || kLower.includes('salary') || kLower.includes('pay') || kLower.includes('exp') || kLower.includes('years') || kLower.includes('count') || kLower.includes('cost') || kLower.includes('revenue') || kLower.includes('amount')) {
+                  type = 'number';
+                } else if (kLower.includes('date') || kLower.includes('time') || kLower.includes('dob')) {
+                  type = 'date';
+                }
+                keyMap.set(kClean, {
+                  key: kClean,
+                  label: formatLabel(kClean),
+                  type
+                });
+              }
+            }
+          });
+        }
+      });
+    }
 
-      return {
-        key,
-        label: formatLabel(key),
-        type
-      };
-    });
-
-    setSchema(cols);
+    const cols = Array.from(keyMap.values());
+    if (cols.length > 0) {
+      setSchema(cols);
+    }
   };
 
   const fetchEmployees = async () => {
@@ -133,14 +129,10 @@ const EmployeeDirectory = () => {
 
       try {
         const schemaRes = await client.get('repository/employees/schema/');
-        const schemaCols = schemaRes.data?.data || schemaRes.data?.columns;
-        if (Array.isArray(schemaCols) && schemaCols.length > 0) {
-          setSchema(schemaCols);
-        } else {
-          deriveSchemaFromRecords(data);
-        }
+        const schemaCols = schemaRes.data?.data || schemaRes.data?.columns || [];
+        deriveSchemaFromRecords(data, schemaCols);
       } catch (sErr) {
-        deriveSchemaFromRecords(data);
+        deriveSchemaFromRecords(data, []);
       }
     } catch (err) {
       console.error(err);
@@ -375,23 +367,51 @@ const EmployeeDirectory = () => {
   const getEmpDataVal = (emp, fieldName) => {
     if (!emp) return 'N/A';
     const details = emp.canonical_data || emp.employee_details || emp;
+    if (!details || typeof details !== 'object') return 'N/A';
+
     let val = details[fieldName] !== undefined ? details[fieldName] : emp[fieldName];
 
     if (val === undefined || val === null) {
-      const fnLower = String(fieldName).toLowerCase().replace(/_/g, '');
-      if (details && typeof details === 'object') {
-        const matchKey = Object.keys(details).find(k => k.toLowerCase().replace(/_/g, '') === fnLower);
-        if (matchKey && details[matchKey] !== undefined && details[matchKey] !== null) {
-          val = details[matchKey];
-        }
+      const fnClean = String(fieldName).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const matchKey = Object.keys(details).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === fnClean);
+      if (matchKey && details[matchKey] !== undefined && details[matchKey] !== null) {
+        val = details[matchKey];
+      }
+    }
+
+    if (val === undefined || val === null) {
+      const fnLower = String(fieldName).toLowerCase();
+      if (fnLower.includes('id')) {
+        const idKey = Object.keys(details).find(k => k.toLowerCase().includes('id') || k.toLowerCase().includes('code'));
+        if (idKey && details[idKey] !== undefined && details[idKey] !== null) val = details[idKey];
+      } else if (fnLower.includes('name')) {
+        const nameKey = Object.keys(details).find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('title'));
+        if (nameKey && details[nameKey] !== undefined && details[nameKey] !== null) val = details[nameKey];
+      } else if (fnLower.includes('email')) {
+        const emailKey = Object.keys(details).find(k => k.toLowerCase().includes('email') || k.toLowerCase().includes('mail'));
+        if (emailKey && details[emailKey] !== undefined && details[emailKey] !== null) val = details[emailKey];
+      } else if (fnLower.includes('phone') || fnLower.includes('mobile') || fnLower.includes('contact')) {
+        const phoneKey = Object.keys(details).find(k => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile') || k.toLowerCase().includes('contact'));
+        if (phoneKey && details[phoneKey] !== undefined && details[phoneKey] !== null) val = details[phoneKey];
+      } else if (fnLower.includes('date')) {
+        const dateKey = Object.keys(details).find(k => k.toLowerCase().includes('date') || k.toLowerCase().includes('dob'));
+        if (dateKey && details[dateKey] !== undefined && details[dateKey] !== null) val = details[dateKey];
       }
     }
 
     if (val === undefined || val === null || val === '') return 'N/A';
+
+    if (typeof val === 'number') {
+      const fnLower = String(fieldName).toLowerCase();
+      if (fnLower.includes('salary') || fnLower.includes('pay') || fnLower.includes('cost') || fnLower.includes('revenue') || fnLower.includes('amount')) {
+        return `₹${val.toLocaleString('en-IN')}`;
+      }
+      return val.toString();
+    }
     if (typeof val === 'object') {
       return Array.isArray(val) ? val.join(', ') : JSON.stringify(val);
     }
-    return val;
+    return String(val);
   };
 
   const safeEmployees = Array.isArray(employees) ? employees : [];
@@ -535,6 +555,7 @@ const EmployeeDirectory = () => {
       await client.post('repository/employees/purge_all/');
       setSelectedIds([]);
       setSelectedEmp(null);
+      setSchema([]);
       fetchEmployees();
     } catch (err) {
       console.error(err);
@@ -920,6 +941,66 @@ const EmployeeDirectory = () => {
           </div>
         )}
       </div>
+
+      {/* ➕ Dynamic Single Add Record Modal */}
+      {showAddModal && (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>
+          <div className="modal fade show d-block" tabIndex="-1" style={{ zIndex: 1050 }}>
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content border-0 shadow-lg">
+                <div className="modal-header bg-success text-white">
+                  <h5 className="modal-title fw-bold">➕ Add New Record to Directory</h5>
+                  <button type="button" className="btn-close btn-close-white" onClick={() => setShowAddModal(false)}></button>
+                </div>
+                <form onSubmit={handleAddRecord}>
+                  <div className="modal-body p-4">
+                    {formError && <div className="alert alert-danger py-2 mb-3">{formError}</div>}
+                    {formSuccess && <div className="alert alert-success py-2 mb-3">{formSuccess}</div>}
+                    <div className="row g-3">
+                      {activeSchema.map(col => (
+                        <div key={col.key} className="col-12 col-md-6">
+                          <label className="form-label small text-secondary fw-semibold">{col.label}</label>
+                          {col.type === 'number' ? (
+                            <input 
+                              type="number" 
+                              className="form-control"
+                              placeholder={`Enter ${col.label}...`}
+                              value={addFormData[col.key] !== undefined ? addFormData[col.key] : ''}
+                              onChange={(e) => setAddFormData({ ...addFormData, [col.key]: e.target.value !== '' ? Number(e.target.value) : '' })}
+                            />
+                          ) : col.type === 'date' ? (
+                            <input 
+                              type="date" 
+                              className="form-control"
+                              value={addFormData[col.key] || ''}
+                              onChange={(e) => setAddFormData({ ...addFormData, [col.key]: e.target.value })}
+                            />
+                          ) : (
+                            <input 
+                              type="text" 
+                              className="form-control"
+                              placeholder={`Enter ${col.label}...`}
+                              value={addFormData[col.key] || ''}
+                              onChange={(e) => setAddFormData({ ...addFormData, [col.key]: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="modal-footer bg-light">
+                    <button type="button" className="btn btn-outline-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
+                    <button type="submit" className="btn btn-success px-4 text-white fw-bold" disabled={submitting}>
+                      {submitting ? 'Saving...' : 'Add Record'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ✏️ Dynamic Edit Modal */}
       {showEditModal && editingEmp && (

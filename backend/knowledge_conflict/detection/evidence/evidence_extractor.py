@@ -148,6 +148,13 @@ class EvidenceExtractor:
             def normalize_val(val_str):
                 clean = str(val_str).strip().lower()
                 clean = clean.replace('₹', '').replace('$', '').replace(',', '')
+                try:
+                    f_val = float(clean)
+                    if f_val.is_integer():
+                        return str(int(f_val))
+                    return str(f_val)
+                except ValueError:
+                    pass
                 return clean
 
             kv1 = parse_kv(candidate.source_text)

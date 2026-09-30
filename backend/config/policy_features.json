@@ -1,0 +1,61 @@
+{
+  "approved_policy_variables": {
+    "OverTime": {
+      "data_type": "categorical",
+      "allowed_values": ["No", "Yes"],
+      "default_baseline": "Original Source Distribution",
+      "description": "Workplace overtime requirement policy.",
+      "policy_intervention": "Restricting mandatory overtime or capping overtime assignments."
+    },
+    "TrainingTimesLastYear": {
+      "data_type": "integer",
+      "min_val": 0,
+      "max_val": 6,
+      "description": "Annual employee training & skill development programs.",
+      "policy_intervention": "Mandating minimum annual training hours or offering advanced skill development."
+    },
+    "WorkLifeBalance": {
+      "data_type": "integer",
+      "min_val": 1,
+      "max_val": 4,
+      "description": "Perceived work-life balance rating (1=Bad, 4=Best).",
+      "policy_intervention": "Flexible work arrangements, hybrid/remote policies, wellness initiatives."
+    },
+    "JobSatisfaction": {
+      "data_type": "integer",
+      "min_val": 1,
+      "max_val": 4,
+      "description": "Perceived job satisfaction rating (1=Low, 4=Very High).",
+      "policy_intervention": "Job enrichment, role alignment, work environment improvements."
+    },
+    "JobInvolvement": {
+      "data_type": "integer",
+      "min_val": 1,
+      "max_val": 4,
+      "description": "Employee job involvement and engagement rating (1=Low, 4=Very High).",
+      "policy_intervention": "Project ownership, cross-functional involvement, recognition programs."
+    },
+    "PercentSalaryHike": {
+      "data_type": "integer",
+      "min_val": 11,
+      "max_val": 25,
+      "description": "Annual salary hike percentage.",
+      "policy_intervention": "Adjusting compensation budget and merit-based salary increment policies."
+    },
+    "StockOptionLevel": {
+      "data_type": "integer",
+      "min_val": 0,
+      "max_val": 3,
+      "description": "Employee equity / stock option tier level.",
+      "policy_intervention": "Expanding equity grant eligibility and stock incentive plans."
+    }
+  },
+  "rejected_policy_candidates": {
+    "Age": "Demographic attribute; non-controllable by workplace policy.",
+    "Gender": "Protected demographic attribute; non-controllable by policy.",
+    "MaritalStatus": "Personal demographic attribute; non-controllable by policy.",
+    "TotalWorkingYears": "Historical career tenure attribute; immutable by current policy.",
+    "YearsAtCompany": "Historical tenure attribute; immutable by current policy.",
+    "NumCompaniesWorked": "Prior employment history; immutable by current policy."
+  }
+}
