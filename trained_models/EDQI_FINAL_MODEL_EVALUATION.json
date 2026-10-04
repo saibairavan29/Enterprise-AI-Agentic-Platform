@@ -1,0 +1,118 @@
+{
+    "title": "FINAL EDQI MODEL EVALUATION",
+    "evaluation_timestamp": "2026-10-04T08:02:09.355960Z",
+    "dataset_metadata": {
+        "dataset_name": "AB_NYC_2019 Controlled Synthetic Quality Dataset",
+        "dataset_version": "v3.0.0_ABNYC",
+        "dataset_hash": "713f22d235f9ac3d4e26b0739b176970ed459e46b95c891be3c1a49a87795eaf",
+        "random_seed": 42,
+        "feature_count": 10,
+        "feature_names": [
+            "price_log",
+            "minimum_nights_log",
+            "number_of_reviews_log",
+            "reviews_per_month_filled",
+            "availability_ratio",
+            "host_listing_density",
+            "latitude_raw",
+            "longitude_raw",
+            "price_to_type_zscore",
+            "text_length_name"
+        ],
+        "class_names": [
+            "HIGH_QUALITY",
+            "MEDIUM_QUALITY",
+            "POOR_QUALITY"
+        ],
+        "total_dataset_size": 146502,
+        "training_set_size": 102549,
+        "validation_set_size": 21975,
+        "test_set_size": 21978
+    },
+    "random_forest": {
+        "algorithm": "Random Forest Classifier",
+        "model_version": "RF_v2.0.0_20261004_080209",
+        "accuracy": 0.8172263172263172,
+        "precision": 0.8806773604633767,
+        "recall": 0.8172263172263173,
+        "f1_score": 0.8026145397787214,
+        "macro_f1": 0.8026145397787214,
+        "weighted_f1": 0.8026145397787214,
+        "roc_auc": 0.9212561157688102,
+        "cross_validation_score": 0.7999502316963795,
+        "training_time_sec": 5.481712579727173,
+        "prediction_time_sec": 0.1665506362915039,
+        "confusion_matrix": [
+            [
+                7312,
+                12,
+                2
+            ],
+            [
+                4000,
+                3325,
+                1
+            ],
+            [
+                1,
+                1,
+                7324
+            ]
+        ],
+        "feature_importances": {
+            "price_log": 0.10360033043077582,
+            "minimum_nights_log": 0.21244140107930146,
+            "number_of_reviews_log": 0.09244967584982634,
+            "reviews_per_month_filled": 0.10880153769679116,
+            "availability_ratio": 0.004923380007841533,
+            "host_listing_density": 0.0020426862544160704,
+            "latitude_raw": 0.10346854910569024,
+            "longitude_raw": 0.0005636820539478889,
+            "price_to_type_zscore": 0.10648516519055998,
+            "text_length_name": 0.2652235923308494
+        }
+    },
+    "xgboost": {
+        "algorithm": "XGBoost Classifier",
+        "model_version": "XGB_v2.0.0_20261004_080209",
+        "accuracy": 0.8281463281463282,
+        "precision": 0.864472596570799,
+        "recall": 0.8281463281463282,
+        "f1_score": 0.8198110397848936,
+        "macro_f1": 0.8198110397848936,
+        "weighted_f1": 0.8198110397848934,
+        "roc_auc": 0.9244092965598562,
+        "cross_validation_score": 0.8135379711132306,
+        "training_time_sec": 2.4017624855041504,
+        "prediction_time_sec": 0.08959436416625977,
+        "confusion_matrix": [
+            [
+                6999,
+                298,
+                29
+            ],
+            [
+                3430,
+                3880,
+                16
+            ],
+            [
+                4,
+                0,
+                7322
+            ]
+        ],
+        "feature_importances": {
+            "price_log": 0.0900731161236763,
+            "minimum_nights_log": 0.18161073327064514,
+            "number_of_reviews_log": 0.20299910008907318,
+            "reviews_per_month_filled": 0.12081418186426163,
+            "availability_ratio": 0.00631239777430892,
+            "host_listing_density": 0.0071622999384999275,
+            "latitude_raw": 0.09050639718770981,
+            "longitude_raw": 0.0035272971726953983,
+            "price_to_type_zscore": 0.14217692613601685,
+            "text_length_name": 0.15481750667095184
+        }
+    }
+}
